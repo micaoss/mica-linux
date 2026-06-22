@@ -1,0 +1,222 @@
+/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
+/*
+ * Copyright (c) 2025 Amlogic, Inc. All rights reserved.
+ */
+
+#ifndef __AM_DNLP_AGL_H
+#define __AM_DNLP_AGL_H
+#include <linux/amlogic/media/amvecm/amvecm.h>
+
+struct param_for_dnlp_s {
+	unsigned int dnlp_alg_enable;
+	unsigned int dnlp_respond;
+	unsigned int dnlp_sel;
+	unsigned int dnlp_respond_flag;
+	unsigned int dnlp_smhist_ck;
+	unsigned int dnlp_mvreflsh;
+	unsigned int dnlp_pavg_btsft;
+	unsigned int dnlp_dbg_i2r;
+	unsigned int dnlp_cuvbld_min;
+	unsigned int dnlp_cuvbld_max;
+	unsigned int dnlp_schg_sft;
+	unsigned int dnlp_bbd_ratio_low;
+	unsigned int dnlp_bbd_ratio_hig;
+	unsigned int dnlp_limit_rng;
+	unsigned int dnlp_range_det;
+	unsigned int dnlp_blk_cctr;
+	unsigned int dnlp_brgt_ctrl;
+	unsigned int dnlp_brgt_range;
+	unsigned int dnlp_brght_add;
+	unsigned int dnlp_brght_max;
+	unsigned int dnlp_dbg_adjavg;
+	unsigned int dnlp_auto_rng;
+	unsigned int dnlp_lowrange;
+	unsigned int dnlp_hghrange;
+	unsigned int dnlp_satur_rat;
+	unsigned int dnlp_satur_max;
+	unsigned int dnlp_set_saturtn;
+	unsigned int dnlp_sbgnbnd;
+	unsigned int dnlp_sendbnd;
+	unsigned int dnlp_clashbgn;
+	unsigned int dnlp_clashend;
+	unsigned int dnlp_var_th;
+	unsigned int dnlp_clahe_gain_neg;
+	unsigned int dnlp_clahe_gain_pos;
+	unsigned int dnlp_clahe_gain_delta;
+	unsigned int dnlp_mtdbld_rate;
+	unsigned int dnlp_adpmtd_lbnd;
+	unsigned int dnlp_adpmtd_hbnd;
+	unsigned int dnlp_blkext_ofst;
+	unsigned int dnlp_whtext_ofst;
+	unsigned int dnlp_blkext_rate;
+	unsigned int dnlp_whtext_rate;
+	unsigned int dnlp_bwext_div4x_min;
+	unsigned int dnlp_irgnbgn;
+	unsigned int dnlp_irgnend;
+	unsigned int dnlp_dbg_map;
+	unsigned int dnlp_final_gain;
+	unsigned int dnlp_cliprate_v3;
+	unsigned int dnlp_cliprate_min;
+	unsigned int dnlp_adpcrat_lbnd;
+	unsigned int dnlp_adpcrat_hbnd;
+	unsigned int dnlp_scurv_low_th;
+	unsigned int dnlp_scurv_mid1_th;
+	unsigned int dnlp_scurv_mid2_th;
+	unsigned int dnlp_scurv_hgh1_th;
+	unsigned int dnlp_scurv_hgh2_th;
+	unsigned int dnlp_mtdrate_adp_en;
+	unsigned int dnlp_clahe_method;
+	unsigned int dnlp_ble_en;
+	unsigned int dnlp_norm;
+	unsigned int dnlp_scn_chg_th;
+	unsigned int dnlp_step_th;
+	unsigned int dnlp_iir_step_mux;
+	unsigned int dnlp_single_bin_bw;
+	unsigned int dnlp_single_bin_method;
+	unsigned int dnlp_reg_max_slop_1st;
+	unsigned int dnlp_reg_max_slop_mid;
+	unsigned int dnlp_reg_max_slop_fin;
+	unsigned int dnlp_reg_min_slop_1st;
+	unsigned int dnlp_reg_min_slop_mid;
+	unsigned int dnlp_reg_min_slop_fin;
+	unsigned int dnlp_reg_trend_wht_expand_mode;
+	unsigned int dnlp_reg_trend_blk_expand_mode;
+	unsigned int dnlp_ve_hist_cur_gain;
+	unsigned int dnlp_ve_hist_cur_gain_precise;
+	unsigned int dnlp_reg_mono_binrang_st;
+	unsigned int dnlp_reg_mono_binrang_ed;
+	unsigned int dnlp_c_hist_gain_base;
+	unsigned int dnlp_s_hist_gain_base;
+	unsigned int dnlp_mvreflsh_offset;
+	unsigned int dnlp_luma_avg_th;
+};
+
+struct dnlp_alg_input_param_s {
+	unsigned int *pre_0_gamma;
+	unsigned int *pre_1_gamma;
+	unsigned int *ntstcnt;
+	unsigned int *ve_dnlp_luma_sum;
+	int *rbase;
+	bool *menu_chg_en;
+};
+
+struct dnlp_alg_output_param_s {
+	unsigned char *ve_dnlp_tgt;
+	unsigned int *ve_dnlp_tgt_10b;
+};
+
+struct dnlp_dbg_ro_param_s {
+	int *ro_luma_avg4;
+	int *ro_var_d8;
+	int *ro_scurv_gain;
+	int *ro_blk_wht_ext0;
+	int *ro_blk_wht_ext1;
+	int *ro_dnlp_brightness;
+	int *gmscurve;
+	int *clash_curve;
+	int *clsh_scvbld;
+	int *blkwht_ebld;
+};
+
+struct dnlp_dbg_rw_param_s {
+	int *dnlp_scurv_low;
+	int *dnlp_scurv_mid1;
+	int *dnlp_scurv_mid2;
+	int *dnlp_scurv_hgh1;
+	int *dnlp_scurv_hgh2;
+	int *gain_var_lut49;
+	int *wext_gain;
+	int *adp_thrd;
+	int *reg_blk_boost_12;
+	int *reg_adp_ofset_20;
+	int *reg_mono_protect;
+	int *reg_trend_wht_expand_lut8;
+	int *c_hist_gain;
+	int *s_hist_gain;
+};
+
+struct dnlp_dbg_print_s {
+	int *dnlp_printk;
+};
+
+struct ble_whe_param_s {
+	int blk_adj_en;
+	int blk_end;
+	int blk_slp;
+	int brt_adj_en;
+	int brt_start;
+	int brt_slp;
+};
+
+struct aml_dnlp_drv_param_s {
+	struct dnlp_alg_output_param_s *output_param;
+	struct dnlp_alg_input_param_s *input_param;
+	struct dnlp_dbg_rw_param_s *rw_param;
+	struct dnlp_dbg_ro_param_s *ro_param;
+	struct param_for_dnlp_s *dnlp_alg_param;
+	struct ble_whe_param_s *ble_whe_param;
+	struct dnlp_dbg_print_s  *dbg_alg_print;
+	bool *dnlp_insmod_ok;
+	void (*dnlp_algorithm_main)(unsigned int raw_hst_sum);
+	void (*dnlp3_param_refrsh)(void);
+};
+
+struct lc_curve_tune_param_s {
+	int lc_reg_lmtrat_sigbin;
+	int lc_reg_lmtrat_thd_max;
+	int lc_reg_lmtrat_thd_black;
+	int lc_reg_thd_black;
+	int yminv_black_thd;
+	int ypkbv_black_thd;
+
+	/* read back black pixel count */
+	int lc_reg_black_count;
+};
+
+struct aml_lc_drv_param_s {
+	int *curve_nodes_cur;
+	int *curve_nodes_pre;
+	int *refresh_bit;
+	int *vnum_start_below;
+	int *vnum_end_below;
+	int *vnum_start_above;
+	int *vnum_end_above;
+	int *invalid_blk;
+	int *osd_iir_en;
+	int *ts;
+	int *scene_change_th;
+	int *alpha1;
+	int *alpha2;
+	int *min_bv_percent_th;
+	int *amlc_debug;
+	int *amlc_iir_debug_en;
+	unsigned int *lc_node_prcnt;
+	unsigned int *lc_node_pos_h;
+	unsigned int *lc_node_pos_v;
+	unsigned int *lc_curve_prcnt;
+	bool *lc_curve_fresh;
+	s64 *curve_nodes_pre_raw;
+	struct lc_curve_tune_param_s *lc_tune_curve;
+	void (*tune_nodes_patch)(int *omap, int *ihistogram, int i, int j);
+	void (*lc_fw_curve_iir)(int *lc_hist, int *lc_szcurve,
+		int blk_vnum, int blk_hnum, int chip_type_id);
+};
+
+struct aml_fmeter_drv_param_s {
+	/*input*/
+	struct fmeter_data_s *data_meter;
+	unsigned int *fmeter_debug;
+	/*output*/
+	int fmeter0_score;
+	int fmeter1_score;
+	u8 fmeter_score_unit;
+	u8 fmeter_score_ten;
+	u8 fmeter_score_hundred;
+	int cur_fmeter_level;
+	void (*fmeter_cal_score)(u32 width, u32 height);
+};
+
+struct aml_dnlp_drv_param_s *dnlp_drv_param_get(void);
+struct aml_lc_drv_param_s *lc_drv_param_get(void);
+struct aml_fmeter_drv_param_s *fmeter_drv_param_get(void);
+#endif

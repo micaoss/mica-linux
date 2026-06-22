@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+
+config AMLOGIC_POWER
+	tristate "Amlogic power related driver support"
+	default n
+	depends on PM_GENERIC_DOMAINS
+	help
+	  this config enables to use amlogic power management driver
+	  Say y here if you want power related driver(pmu/dvfs) support
+
+config AMLOGIC_POWER_EE
+	bool "Amlogic power domain ee support"
+	default y if (AMLOGIC_POWER=m || AMLOGIC_POWER=y)
+	depends on AMLOGIC_POWER
+	help
+	  this config enables to use amlogic ee power management driver
+
+
+source "$(COMMON_DRIVERS_DIR)/drivers/power/meson_pmic6b/Kconfig"
+

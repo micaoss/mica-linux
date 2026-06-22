@@ -1,0 +1,14 @@
+EXTRA_CLOSED_SOURCE_MODULE_LIST=(
+	tcon_fw.ko
+	dnlp_alg.ko
+	amlogic_fbc_lib*.ko
+	ldim_fw.ko
+	hdr10_tmo_alg.ko
+	hdr10p_adaptive_alg.ko
+	cuva_hdr_alg.ko
+	color_tune_alg*.ko
+	*_fe*.ko
+	frc*.ko
+	gdc_fw*.ko
+	amlogic_di_driver*.ko
+)

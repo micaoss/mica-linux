@@ -1,0 +1,288 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2019 Amlogic, Inc. All rights reserved.
+ */
+
+#include <linux/version.h>
+#include <linux/module.h>
+#include <linux/types.h>
+#include <linux/kernel.h>
+#include <linux/printk.h>
+#include <linux/interrupt.h>
+#include <linux/platform_device.h>
+#include <linux/sysfs.h>
+#include <linux/of.h>
+#include <linux/of_irq.h>
+#include <linux/of_platform.h>
+#include "ddr_bandwidth.h"
+#include <linux/io.h>
+#include <linux/slab.h>
+
+#define DMC_CMD_FILTER_CTRL3		((0x0012  << 2))
+
+static void g12_dmc_port_config(struct ddr_bandwidth *db, int channel, int port)
+{
+	unsigned int val;
+	unsigned int rp[MAX_CHANNEL] = {DMC_MON_G12_CTRL1, DMC_MON_G12_CTRL3,
+					DMC_MON_G12_CTRL5, DMC_MON_G12_CTRL7};
+	unsigned int rs[MAX_CHANNEL] = {DMC_MON_G12_CTRL2, DMC_MON_G12_CTRL4,
+					DMC_MON_G12_CTRL6, DMC_MON_G12_CTRL8};
+	int subport = -1;
+
+	/* clear all port mask */
+	if (port < 0) {
+		writel(0, db->ddr_reg1 + rp[channel]);
+		writel(0, db->ddr_reg1 + rs[channel]);
+		return;
+	}
+
+	if (port >= PORT_MAJOR)
+		subport = port - PORT_MAJOR;
+
+	if (subport < 0) {
+		val = readl(db->ddr_reg1 + rp[channel]);
+		val |=  (1 << port);
+		writel(val, db->ddr_reg1 + rp[channel]);
+		val = 0xffff;
+		writel(val, db->ddr_reg1 + rs[channel]);
+	} else {
+		val = (0x1 << 7);	/* select device */
+		writel(val, db->ddr_reg1 + rp[channel]);
+		val = readl(db->ddr_reg1 + rs[channel]);
+		val |= (1 << subport);
+		writel(val, db->ddr_reg1 + rs[channel]);
+	}
+}
+
+static unsigned long g12_get_dmc_freq_quick(struct ddr_bandwidth *db)
+{
+	unsigned int val;
+	unsigned int n, m, od1;
+	unsigned int od_div = 0xfff;
+	unsigned long freq = 0;
+
+	if (db->cpu_type == DMC_TYPE_C2) {
+		if (db->freq_reg) {
+			freq = readl(db->freq_reg);
+			freq = freq * 1000000;
+		}
+		return freq / 2;
+	}
+
+	val = readl(db->pll_reg);
+	val = val & 0xfffff;
+	switch ((val >> 16) & 7) {
+	case 0:
+		od_div = 2;
+		break;
+
+	case 1:
+		od_div = 3;
+		break;
+
+	case 2:
+		od_div = 4;
+		break;
+
+	case 3:
+		od_div = 6;
+		break;
+
+	case 4:
+		od_div = 8;
+		break;
+
+	default:
+		break;
+	}
+
+	m = val & 0x1ff;
+	n = ((val >> 10) & 0x1f);
+	od1 = (((val >> 19) & 0x1)) == 1 ? 2 : 1;
+	freq = DEFAULT_XTAL_FREQ / 1000;	/* avoid overflow */
+	if (n)
+		freq = ((((freq * m) / n) >> od1) / od_div) * 1000;
+
+	db->dmc_freq = freq;
+	db->ddr_freq = freq * 2;
+
+	return freq;
+}
+
+static void g12_dmc_bandwidth_enable(struct ddr_bandwidth *db)
+{
+	unsigned int val;
+
+	/* enable all channel */
+	val =  (db->mode << 31) |	/* enable bit */
+	       (0x01 << 20) |	/* use timer  */
+	       (0x0f <<  0);
+
+	val |= (readl(db->ddr_reg1 + DMC_MON_G12_CTRL0) & ~BIT(31));
+	writel(val, db->ddr_reg1 + DMC_MON_G12_CTRL0);
+}
+
+static void g12_dmc_bandwidth_init(struct ddr_bandwidth *db)
+{
+	unsigned int i;
+
+	/* set timer trigger clock_cnt */
+	writel(db->clock_count, db->ddr_reg1 + DMC_MON_G12_TIMER);
+	g12_dmc_bandwidth_enable(db);
+
+	for (i = 0; i < db->channels; i++) {
+		if (!db->port[i])
+			g12_dmc_port_config(db, i, -1);
+	}
+}
+
+static int g12_handle_irq(struct ddr_bandwidth *db, struct ddr_grant *dg)
+{
+	unsigned int reg, i, val;
+	int ret = -1;
+
+	val = readl(db->ddr_reg1 + DMC_MON_G12_CTRL0);
+	if (val & DMC_QOS_IRQ) {
+		/*
+		 * get total bytes by each channel, each cycle 16 bytes;
+		 */
+		dg->all_grant = readl(db->ddr_reg1 + DMC_MON_G12_ALL_GRANT_CNT);
+		dg->all_req   = readl(db->ddr_reg1 + DMC_MON_G12_ALL_REQ_CNT);
+		dg->all_grant *= 16;
+		dg->all_req   *= 16;
+		for (i = 0; i < db->channels; i++) {
+			reg = DMC_MON_G12_ONE_GRANT_CNT + (i << 2);
+			dg->channel_grant[i] = readl(db->ddr_reg1 + reg) * 16;
+		}
+		/* clear irq flags */
+		g12_dmc_bandwidth_enable(db);
+
+		ret = 0;
+	}
+	return ret;
+}
+
+#if DDR_BANDWIDTH_DEBUG
+static int g12_dump_reg(struct ddr_bandwidth *db, char *buf)
+{
+	int s = 0, i;
+	unsigned int r;
+
+	for (i = 0; i < 9; i++) {
+		r  = readl(db->ddr_reg1 + (DMC_MON_G12_CTRL0 + (i << 2)));
+		s += sprintf(buf + s, "DMC_MON_CTRL%d:        %08x\n", i, r);
+	}
+	r  = readl(db->ddr_reg1 + DMC_MON_G12_ALL_REQ_CNT);
+	s += sprintf(buf + s, "DMC_MON_ALL_REQ_CNT:  %08x\n", r);
+	r  = readl(db->ddr_reg1 + DMC_MON_G12_ALL_GRANT_CNT);
+	s += sprintf(buf + s, "DMC_MON_ALL_GRANT_CNT:%08x\n", r);
+	r  = readl(db->ddr_reg1 + DMC_MON_G12_ONE_GRANT_CNT);
+	s += sprintf(buf + s, "DMC_MON_ONE_GRANT_CNT:%08x\n", r);
+	r  = readl(db->ddr_reg1 + DMC_MON_G12_SEC_GRANT_CNT);
+	s += sprintf(buf + s, "DMC_MON_SEC_GRANT_CNT:%08x\n", r);
+	r  = readl(db->ddr_reg1 + DMC_MON_G12_THD_GRANT_CNT);
+	s += sprintf(buf + s, "DMC_MON_THD_GRANT_CNT:%08x\n", r);
+	r  = readl(db->ddr_reg1 + DMC_MON_G12_FOR_GRANT_CNT);
+	s += sprintf(buf + s, "DMC_MON_FOR_GRANT_CNT:%08x\n", r);
+	r  = readl(db->ddr_reg1 + DMC_MON_G12_TIMER);
+	s += sprintf(buf + s, "DMC_MON_TIMER:        %08x\n", r);
+
+	return s;
+}
+#endif
+
+static int dmc_buf_level_handle(struct ddr_bandwidth *db, u32 *val,
+				enum property_type type, int rw)
+{
+	switch (type) {
+	case WBUF_EMPTY:
+		all_dmc_reg_field_access(db, val, rw, DMC_CMD_FILTER_CTRL3, 31, 1);
+		break;
+	case WBUF_H:
+		all_dmc_reg_field_access(db, val, rw, DMC_CMD_FILTER_CTRL3, 26, 5);
+		break;
+	case WBUF_M:
+		all_dmc_reg_field_access(db, val, rw, DMC_CMD_FILTER_CTRL3, 21, 5);
+		break;
+	case WBUF_L:
+		all_dmc_reg_field_access(db, val, rw, DMC_CMD_FILTER_CTRL3, 16, 5);
+		break;
+	case RBUF_H:
+		all_dmc_reg_field_access(db, val, rw, DMC_CMD_FILTER_CTRL3, 10, 5);
+		break;
+	case RBUF_M:
+		all_dmc_reg_field_access(db, val, rw, DMC_CMD_FILTER_CTRL3, 5, 5);
+		break;
+	case RBUF_L:
+		all_dmc_reg_field_access(db, val, rw, DMC_CMD_FILTER_CTRL3, 0, 5);
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static int property_access(struct ddr_bandwidth *db, u64 *val,
+			   enum property_type type, int rw)
+{
+	if (type >= WBUF_EMPTY && type <= RBUF_L)
+		return dmc_buf_level_handle(db, (u32 *)val, type, rw);
+
+	return -1;
+}
+
+#define AM_REGISTER_COUNT		((4 << 2))
+#define SIDE_BAND_REG			((2 << 2))
+#define SIDE_BAND_BLOCK_ENABLE		31
+#define BUS_COUNT			24
+static int side_band(struct ddr_bandwidth *db, unsigned char dmc, unsigned char bus)
+{
+	int i;
+	u32 val;
+	unsigned int reg;
+
+	if (db->cpu_type == DMC_TYPE_SC2)
+		reg = (0x30 << 2) + AM_REGISTER_COUNT * (bus - 16) + SIDE_BAND_REG;
+	else
+		reg = DMC_AM0_CHAN_CTRL + AM_REGISTER_COUNT * (bus - 16) + SIDE_BAND_REG;
+
+	if (db->dmc_bus[dmc].bus[bus].side_band.flags) {
+		u32 val0 = 0;
+
+		for (i = 0, val = 0; i < db->dmc_bus[dmc].bus[bus].side_band.block_num; i++)
+			val |= 1 << db->dmc_bus[dmc].bus[bus].side_band.block_bus[i];
+
+		if (db->dmc_bus[dmc].bus[bus].side_band.rw & 1)
+			all_dmc_reg_field_access(db, &val, WRITE, reg, 0, BUS_COUNT);
+		else
+			all_dmc_reg_field_access(db, &val0, WRITE, reg, 0, BUS_COUNT);
+		if (db->dmc_bus[dmc].bus[bus].side_band.rw & 2)
+			all_dmc_reg_field_access(db, &val, WRITE, reg + 4, 0, BUS_COUNT);
+		else
+			all_dmc_reg_field_access(db, &val0, WRITE, reg + 4, 0, BUS_COUNT);
+
+		val = 1;
+		all_dmc_reg_field_access(db, &val, WRITE, reg, SIDE_BAND_BLOCK_ENABLE, 1);
+	} else {
+		val = 0;
+		all_dmc_reg_field_access(db, &val, WRITE, reg, SIDE_BAND_BLOCK_ENABLE, 1);
+		all_dmc_reg_field_access(db, &val, WRITE, reg, 0, BUS_COUNT);
+		all_dmc_reg_field_access(db, &val, WRITE, reg + 4, 0, BUS_COUNT);
+	}
+
+	return 0;
+}
+
+struct ddr_bandwidth_ops g12_ddr_bw_ops = {
+	.init             = g12_dmc_bandwidth_init,
+	.config_port      = g12_dmc_port_config,
+	.get_freq         = g12_get_dmc_freq_quick,
+	.handle_irq       = g12_handle_irq,
+	.bandwidth_enable = g12_dmc_bandwidth_enable,
+#if DDR_BANDWIDTH_DEBUG
+	.dump_reg         = g12_dump_reg,
+#endif
+	.property_access  = property_access,
+	.side_band	  = side_band,
+};

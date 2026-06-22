@@ -1,0 +1,128 @@
+/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
+/*
+ * Copyright (c) 2019 Amlogic, Inc. All rights reserved.
+ */
+
+#ifndef _VOUT_FUNC_H_
+#define _VOUT_FUNC_H_
+#include <linux/cdev.h>
+#include <linux/uaccess.h>
+#include <linux/amlogic/media/vout/vout_notify.h>
+
+#define VOUTPR(fmt, args...)     pr_info(fmt "", ## args)
+#define VOUTERR(fmt, args...)    pr_err("error: " fmt "", ## args)
+#define VOUTDBG(fmt, args...)    pr_debug("debug: " fmt "", ## args)
+
+#define CONNECTOR_TYPE_NAME_LEN_MAX    32
+#define MAX_CONNECTOR_TYPE_NUM    20
+
+struct vout_cdev_s {
+	dev_t         devno;
+	struct cdev   cdev;
+	struct device *dev;
+};
+
+struct vout_connector_type_s {
+	int connector_type;
+	char name[CONNECTOR_TYPE_NAME_LEN_MAX];
+};
+
+extern int vout_debug_print;
+
+void vout_trim_string(char *str);
+void vout_parse_param(char *buf_orig, char **parm);
+
+struct vinfo_s *get_invalid_vinfo(int index, unsigned int flag);
+char *convert_connector_type_to_str(int type);
+int vout_func_get_connector_type_cap(struct vout_connector_type_s *type_s);
+struct vout_module_s *vout_func_get_vout_module(void);
+
+void vout_vdo_meas_ctrl_init(void);
+void vout_viu_mux_update(int index, unsigned int mux_sel);
+void vout_viu_mux_clear(int index, unsigned int mux_sel);
+
+void vout_func_set_state(int index, enum vmode_e mode);
+void vout_func_update_viu(int index, int viu_mux);
+int vout_func_set_vmode(int index, enum vmode_e mode);
+int vout_func_set_current_vmode(int index, enum vmode_e mode);
+int vout_func_check_same_vmodeattr(int index, char *name);
+enum vmode_e vout_func_validate_vmode(int index, char *name,
+	int type, unsigned int frac);
+void update_curr_vout_server(int index, struct vout_server_s *vout_server);
+unsigned int vout_func_get_viu_mux(int index, struct vout_server_s *vout_server, char *_mode);
+int vout_func_get_disp_cap(int index, char *buf);
+int vout_func_set_vframe_rate_hint(int index, int duration);
+int vout_func_get_vframe_rate_hint(int index);
+void vout_func_set_test_bist(int index, unsigned int bist);
+void vout_func_set_bl_brightness(int index, unsigned int brightness);
+unsigned int vout_func_get_bl_brightness(int index);
+int vout_func_vout_suspend(int index);
+int vout_func_vout_resume(int index);
+int vout_func_vout_shutdown(int index);
+int vout_func_vout_register_server(int index,
+				   struct vout_server_s *mem_server);
+int vout_func_vout_unregister_server(int index,
+				     struct vout_server_s *mem_server);
+unsigned int vout_parse_vout_name(char *name);
+
+int set_current_vmode(enum vmode_e);
+int vout_check_same_vmodeattr(char *name);
+enum vmode_e validate_vmode(char *name, int type, unsigned int frac);
+
+int vout_suspend(void);
+int vout_resume(void);
+int vout_shutdown(void);
+
+#ifdef CONFIG_AMLOGIC_VOUT2_SERVE
+int set_current_vmode2(enum vmode_e);
+int vout2_check_same_vmodeattr(char *name);
+enum vmode_e validate_vmode2(char *name, int type, unsigned int frac);
+
+int vout2_suspend(void);
+int vout2_resume(void);
+int vout2_shutdown(void);
+#endif
+
+#ifdef CONFIG_AMLOGIC_VOUT3_SERVE
+int set_current_vmode3(enum vmode_e);
+int vout3_check_same_vmodeattr(char *name);
+enum vmode_e validate_vmode3(char *name, int type, unsigned int frac);
+
+int vout3_suspend(void);
+int vout3_resume(void);
+int vout3_shutdown(void);
+#endif
+
+#ifdef CONFIG_ARCH_MESON_ODROID_COMMON
+
+#define ODROID_VOUT_DEFINE_STRING_PARAM(_prefix, _getter, _name, _parser, _store, _size) \
+static int odroid_##_prefix##_set_##_name(const char *val,				\
+const struct kernel_param *kp)								\
+{											\
+return odroid_##_prefix##_set_parser_string(val, _store, _size, _parser);		\
+}											\
+											\
+static const struct kernel_param_ops odroid_##_prefix##_##_name##_ops = {		\
+.set = odroid_##_prefix##_set_##_name,							\
+.get = _getter,										\
+}
+
+#define ODROID_VOUT_DEFINE_INT_PARAM(_prefix, _getter, _name, _parser)			\
+static int odroid_##_prefix##_set_##_name(const char *val,				\
+const struct kernel_param *kp)								\
+{											\
+return odroid_##_prefix##_set_parser_string(val, NULL, 0, _parser);			\
+}											\
+											\
+static const struct kernel_param_ops odroid_##_prefix##_##_name##_ops = {		\
+.set = odroid_##_prefix##_set_##_name,							\
+.get = _getter,										\
+}
+
+#define ODROID_VOUT_REGISTER_PARAM(_prefix, _name, _arg, _desc)				\
+module_param_cb(_name, &odroid_##_prefix##_##_name##_ops, _arg, 0644);			\
+MODULE_PARM_DESC(_name, _desc)
+
+#endif
+
+#endif

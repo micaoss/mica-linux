@@ -1,0 +1,228 @@
+#!/bin/bash
+# SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+#
+# Copyright (c) 2019 Amlogic, Inc. All rights reserved.
+#
+
+function show_help {
+	echo "USAGE: $0 [--abi]"
+	echo
+	echo "  --arch                  for ARCH, build 64 or 32 bit kernel, arm|arm64[default], require parameter value"
+	echo "  --abi                   for ABI, call build_abi.sh not build.sh, 1|0[default], not require parameter value"
+	echo "  --build_config          for BUILD_CONFIG, common_drivers/build.config.amlogic[default]|common/build.config.gki.aarch64, require parameter value"
+	echo "  --lto                   for LTO, full|thin[default]|none, require parameter value"
+	echo "  --menuconfig            for only menuconfig, not require parameter value"
+	echo "  --basicconfig           for basicconfig, m(menuconfig)[default]|n"
+	echo "  --image                 for only build kernel, not require parameter value"
+	echo "  --modules               for only build modules, not require parameter value"
+	echo "  --dtbs                  for only build dtbs, not require parameter value"
+	echo "  --kernel_dir            for KERNEL_DIR, common[default]|other dir, require parameter value"
+	echo "  --common_drivers_dir    for COMMON_DRIVERS_DIR, common[default]|other dir, require parameter value"
+	echo "  --build_dir             for BUILD_DIR, build[default]|other dir, require parameter value"
+	echo "  --check_defconfig       for check defconfig"
+	echo "  --modules_depend        for check modules depend"
+	echo "  --android_project       for android project build"
+	echo "  --gki_20                for build gki 2.0 kernel:   gki_defconfig + amlogic_gki.fragment"
+	echo "  --gki_10                for build gki 1.0 kernel:   gki_defconfig + amlogic_gki.fragment + amlogic_gki.10 + amlogic_gki.debug"
+	echo "  --fast_build            for fast build"
+	echo "  --upgrade               for android upgrade builtin module optimize vendor_boot size" following with android project name
+	echo "  --manual_insmod_module  for insmod ko manually when kernel is booting.It's usually used in debug test"
+	echo "  --patch                 for only am patches"
+	echo "  --check_gki_20          for gki 2.0 check kernel build"
+	echo "  --dev_config            for use the config specified by oem instead of amlogic like ./mk.sh --dev_config a_config+b_config+c_config"
+	echo "  --use_prebuilt_gki      for use prebuilt gki, require parameter value, https://ci.android.com/builds/submitted/10412065/kernel_aarch64/latest, --use_prebuilt_gki 10412065"
+	echo "  --kasan                 for build kernel with config kasan"
+	echo "  --update_kernel         for update the debugging kernel"
+	echo "  --fatload          	for force change to fatload mode in android build"
+	echo "  --clean          	for clean out directory"
+	echo "  --ddk_build          	for use ddk to build common_drivers with gki_20 mode"
+	echo "  --package               for packaging out files"
+}
+
+# handle the dir parameters for amlogic_utils.sh
+VA=
+ARGS=()
+for i in "$@"
+do
+	case $i in
+	--kernel_dir)
+		KERNEL_DIR=$2
+		VA=1
+		shift
+		;;
+	--common_drivers_dir)
+		COMMON_DRIVERS_DIR=$2
+		VA=1
+		shift
+		;;
+	--patch)
+		ONLY_PATCH=1
+		PATCH_PARM=$2
+		if [[ "${PATCH_PARM}" == "lunch" ]]; then
+			VA=1
+		fi
+		CURRENT_DIR=`pwd`
+		cd $(dirname $0)
+		shift
+		;;
+	*)
+		if [[ -n $1 ]];
+		then
+			if [[ -z ${VA} ]];
+			then
+				ARGS+=("$1")
+			fi
+		fi
+		VA=
+		shift
+		;;
+	esac
+done
+
+if [[ -z "${KERNEL_DIR}" ]]; then
+	KERNEL_DIR=common
+fi
+if [[ ! -f ${KERNEL_DIR}/init/main.c ]]; then
+	echo "The directory of kernel does not exist";
+	exit
+fi
+if [[ -z "${COMMON_DRIVERS_DIR}" ]]; then
+	if [[ -f ${KERNEL_DIR}/../common_drivers/amlogic_utils.sh ]]; then
+		COMMON_DRIVERS_DIR=../common_drivers
+	elif [[ -f "${KERNEL_DIR}/common_drivers/amlogic_utils.sh" ]]; then
+		COMMON_DRIVERS_DIR=common_drivers
+	fi
+fi
+if [[ ! -f ${KERNEL_DIR}/${COMMON_DRIVERS_DIR}/amlogic_utils.sh ]]; then
+	echo "The directory of common_drivers does not exist";
+	exit
+fi
+
+set -- "${ARGS[@]}" # other parameters are used as script parameters to handle_input_parameters
+
+source "${KERNEL_DIR}/${COMMON_DRIVERS_DIR}/amlogic_utils.sh"
+
+handle_input_parameters "$@"
+
+set_default_parameters # set amlogic parameters default value
+
+set -- "${ARGS[@]}" # other parameters are used as script parameters of build_abi.sh or build.sh
+
+set -e
+
+export_env_variable
+
+clean_build_out_directory
+
+copy_pre_commit
+
+adjust_config_action
+
+build_part_of_kernel
+
+show_build_info
+
+if [[ "${FULL_KERNEL_VERSION}" != "common13-5.15" && "${ARCH}" == "arm64" && ${BAZEL} == 1 ]]; then
+	if [[ "${PACKAGE}" != "1" ]]; then
+		build_kernel_with_bazel "$@"
+	else
+		source $(find ${ROOT_DIR}/project/ -name ${ANDROID_PROJECT})/build.config.meson.${ARCH}.trunk.${FULL_KERNEL_VERSION##*-}
+	fi
+
+	echo "========================================================"
+	echo "after compiling with bazel and organizing the document"
+	source ${KERNEL_DIR}/build.config.constants
+	export COMMON_OUT_DIR=$(readlink -m ${OUT_DIR:-${ROOT_DIR}/out${OUT_DIR_SUFFIX}/${BRANCH}})
+	export DIST_DIR=$(readlink -m ${DIST_DIR:-${COMMON_OUT_DIR}/dist})
+	source ${KERNEL_DIR}/${COMMON_DRIVERS_DIR}/amlogic_utils.sh
+
+	sed -i '/common_drivers/d' $DIST_DIR/system_dlkm.modules.load
+	bazel_extra_cmds
+	build_ext_module_without_bazel
+	if [[ -n ${COPY_DEV_CONFIGS} ]]; then
+		for config_name in ${COPY_DEV_CONFIGS}; do
+			if [[ -f ${ROOT_DIR}/${KERNEL_DIR}/${COMMON_DRIVERS_DIR}/arch/${ARCH}/configs/${config_name} ]]; then
+				rm -f ${ROOT_DIR}/${KERNEL_DIR}/${COMMON_DRIVERS_DIR}/arch/${ARCH}/configs/${config_name}
+			else
+				echo "ERROR: config file ${config_name} is not in the right path!!"
+				exit
+			fi
+		done
+	fi
+else
+	if [ "${ABI}" -eq "1" ]; then
+		export OUT_DIR_SUFFIX="_abi"
+	else
+		OUT_DIR_SUFFIX=
+	fi
+
+	if [ "${ABI}" -eq "1" ]; then
+		${ROOT_DIR}/${BUILD_DIR}/build_abi.sh "$@"
+	else
+		if [[ "${FULL_KERNEL_VERSION}" != "common13-5.15" && "${ARCH}" = "arm64" ]]; then
+			if [[ -z ${EXT_MODULES} ]]; then
+				echo
+				echo
+				echo "========================================================"
+				echo " Build GKI boot image and GKI modules"
+				echo
+				source ${KERNEL_DIR}/build.config.constants
+				export OUT_DIR=$(readlink -m ${OUT_DIR:-${ROOT_DIR}/out${OUT_DIR_SUFFIX}/${BRANCH}_gki})
+				COMMON_OUT_DIR=$(readlink -m ${OUT_DIR:-${ROOT_DIR}/out${OUT_DIR_SUFFIX}/${BRANCH}})
+				export DIST_GKI_DIR=$(readlink -m ${DIST_DIR:-${COMMON_OUT_DIR}/dist})
+
+				if [[ "${GKI_CONFIG}" == "gki_20" ]]; then
+					BUILD_CONFIG=${KERNEL_DIR}/build.config.gki.aarch64 ${ROOT_DIR}/${BUILD_DIR}/build.sh
+				else
+					export IN_BUILD_GKI_10=1
+					${ROOT_DIR}/${BUILD_DIR}/build.sh
+					unset IN_BUILD_GKI_10
+				fi
+				unset OUT_DIR
+			fi
+
+			echo
+			echo
+			echo "========================================================"
+			echo " Build Vendor modules"
+			echo
+			${ROOT_DIR}/${BUILD_DIR}/build.sh "$@"
+		else
+			if [[ "${FULL_KERNEL_VERSION}" != "common13-5.15" && "${ARCH}" = "arm" ]]; then
+				build_android_32bit $@
+			else
+                        	clear_files_compressed_with_lzma_in_last_build
+				${ROOT_DIR}/${BUILD_DIR}/build.sh "$@"
+			fi
+		fi
+	fi
+fi
+
+source ${ROOT_DIR}/${BUILD_CONFIG}
+
+source ${KERNEL_BUILD_VAR_FILE}
+
+if [[ -n ${RM_KERNEL_BUILD_VAR_FILE} ]]; then
+	rm -f ${KERNEL_BUILD_VAR_FILE}
+fi
+
+if [[ ${ARCH} = "arm64" && -z ${FAST_BUILD} ]]; then
+	generate_lzma_format_image
+fi
+
+rename_external_module_name
+
+rebuild_rootfs ${ARCH}
+
+set +e
+
+check_undefined_symbol
+
+abi_symbol_list_detect
+
+wait
+
+if [[ "${PACKAGE}" == "1" ]]; then
+	source project/build/build_kernel_5.15.sh
+	android_project_package ${PACKAGE}
+fi

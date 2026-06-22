@@ -1,0 +1,31 @@
+# SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+
+MODULE_NAME = amlogic-cpuinfo
+obj-$(CONFIG_AMLOGIC_CPU_INFO) = $(MODULE_NAME).o
+$(MODULE_NAME)-y += cpu_info.o
+
+PR_FMT = $(subst amlogic-,,$(MODULE_NAME))
+PR_FMT_DEFINE="-Dpr_fmt(fmt)= \"[$(PR_FMT)]: \" fmt"
+ccflags-y += $(PR_FMT_DEFINE)
+BUILD_TIME := $(shell date +%Y.%m.%d-%H.%M.%S)
+ccflags-y += "-DBUILD_TIME=\"$(BUILD_TIME)\""
+
+COMMON_DRIVERS_RELEASE=$(subst -g,, $(shell $(srctree)/scripts/setlocalversion $(srctree)/$(COMMON_DRIVERS_DIR)))
+COMMON_DRIVERS_RELEASE_DEFINE="-DCOMMON_DRIVERS_RELEASE=\"$(COMMON_DRIVERS_RELEASE)\""
+ccflags-y += $(COMMON_DRIVERS_RELEASE_DEFINE)
+
+BUILD_GKI_VERSION := $(shell echo $$GKI_CONFIG)
+BUILD_GKI_VERSION_DEFINE="-DGKI_CONFIG=\"$(BUILD_GKI_VERSION)\""
+ccflags-y += $(BUILD_GKI_VERSION_DEFINE)
+
+BUILD_TYPE_VALUE := $(shell echo $$BUILD_TYPE)
+BUILD_TYPE_VALUE_DEFINE="-DBUILD_TYPE=\"$(BUILD_TYPE_VALUE)\""
+ccflags-y += $(BUILD_TYPE_VALUE_DEFINE)
+
+BUILD_GKI_IMAGE := $(shell echo $$GKI_IMAGE)
+BUILD_GKI_IMAGE_DEFINE="-DGKI_IMAGE=\"$(BUILD_GKI_IMAGE)\""
+ccflags-y += $(BUILD_GKI_IMAGE_DEFINE)
+
+BUILD_PROJECT := $(shell echo $$ANDROID_PROJECT)
+BUILD_PROJECT_DEFINE="-DBUILD_PROJECT=\"$(BUILD_PROJECT)\""
+ccflags-y += $(BUILD_PROJECT_DEFINE)

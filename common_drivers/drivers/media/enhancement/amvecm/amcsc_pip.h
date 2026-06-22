@@ -1,0 +1,52 @@
+/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
+/*
+ * Copyright (c) 2025 Amlogic, Inc. All rights reserved.
+ */
+
+#ifndef CONFIG_AMLOGIC_ZAPPER_CUT
+#ifndef AM_CSC_PIP_H
+#define AM_CSC_PIP_H
+#include <linux/amlogic/media/amvecm/hdr2_ext.h>
+extern uint slice_set;
+extern u32 prime_mode;
+
+int hdr_policy_process(struct vinfo_s *vinfo,
+	enum hdr_type_e *source_format,
+	enum vd_path_e vd_path,
+	enum vpp_index_e vpp_index,
+	struct vframe_s *vf);
+void hdmi_packet_process(int signal_change_flag,
+	struct vinfo_s *vinfo,
+	struct vframe_master_display_colour_s *p,
+	struct hdr10plus_para *hdmitx_hdr10plus_param,
+	struct cuva_hdr_vsif_para *hdmitx_vsif_param,
+	struct cuva_hdr_vs_emds_para *hdmitx_edms_param,
+	enum vd_path_e vd_path,
+	enum hdr_type_e *source_type,
+	enum vpp_index_e vpp_index);
+void video_post_process(struct vframe_s *vf,
+	enum vpp_matrix_csc_e csc_type,
+	struct vinfo_s *vinfo,
+	enum vd_path_e vd_path,
+	struct vframe_master_display_colour_s *master_info,
+	enum hdr_type_e *source_type, enum vpp_index_e vpp_index);
+void output_color_fmt_convert(int vpp_index);
+void hdr_proc_multi_slices(struct vframe_s *vf,
+	enum hdr_module_sel module_sel,
+	u32 hdr_process_select,
+	struct vinfo_s *vinfo,
+	struct matrix_s *gmt_mtx,
+	s32 slice_mode,
+	enum vpp_index_e vpp_index);
+void hdr_proc(struct vframe_s *vf,
+	enum hdr_module_sel module_sel,
+	u32 hdr_process_select,
+	struct vinfo_s *vinfo,
+	struct matrix_s *gmt_mtx,
+	enum vpp_index_e vpp_index);
+
+void cal_gamut_mapping_wrapper_matrix(enum hdr_type_e source_type,
+	struct vinfo_s *vinfo, int bypass_gamut, enum vpp_index_e vpp_index);
+
+#endif
+#endif

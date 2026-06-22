@@ -1,0 +1,26 @@
+load("//build/kernel/kleaf:kernel.bzl", "ddk_headers", "ddk_module")
+load("//common_drivers:amlogic_utils.bzl", "m_k_files", "kernel_select")
+
+m_k_files()
+
+ddk_module(
+    name = "amlogic-rng",
+    srcs = glob([
+        "**/*.h",
+    ]),
+    conditional_srcs = {
+        "CONFIG_AMLOGIC_HW_RANDOM_MESON": {
+            True: [
+                "meson-rng.c",
+            ],
+        },
+    },
+    hdrs = [
+    ],
+    local_defines = ["pr_fmt(fmt)=\"[amlogic-rng]: \" fmt"],
+    out = "amlogic-rng.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = [
+    ],
+)

@@ -1,0 +1,50 @@
+/* SPDX-License-Identifier: (GPL-2.0+ OR MIT) */
+/*
+ * Copyright (c) 2025 Amlogic, Inc. All rights reserved.
+ */
+
+#ifndef VIDEO_COMMON_HH
+#define VIDEO_COMMON_HH
+#include "video_priv.h"
+
+extern unsigned int debug_common_flag;
+#define DEBUG_FLAG_COMMON_FRC      BIT(0)
+#define DEBUG_FLAG_COMMON_AISR     BIT(1)
+#define DEBUG_FLAG_COMMON_FG       BIT(2)
+#define DEBUG_FLAG_COMMON_FG_MORE  BIT(3)
+#define DEBUG_FLAG_COMMON_AMDV     BIT(4)
+#define DEBUG_FLAG_COMMON_SAFA     BIT(5)
+#define DEBUG_FLAG_COMMON_PER_PREVSYNC     BIT(6)
+#define DEBUG_FLAG_COMMON_LCEVC    BIT(7)
+#define DEBUG_FLAG_COMMON_VFCD     BIT(8)
+#define DEBUG_FLAG_COMMON_FENCE    BIT(9)
+
+extern struct vd_proc_info_t vd_proc_amdv;
+extern struct vd_proc_amvecm_info_t vd_proc_amvecm;
+extern unsigned int aisr_size_threshold;
+u32 is_crop_left_odd(struct vpp_frame_par_s *frame_par);
+void get_pre_hscaler_para(u8 layer_id, int *ds_ratio, int *flt_num);
+void get_pre_vscaler_para(u8 layer_id, int *ds_ratio, int *flt_num);
+void get_pre_hscaler_coef(u8 layer_id, int *pre_hscaler_table);
+void get_pre_vscaler_coef(u8 layer_id, int *pre_hscaler_table);
+u32 viu_line_stride(u32 buffr_width);
+u32 viu_line_stride_ex(u32 buffr_width, u8 plane_bits);
+void init_layer_canvas(struct video_layer_s *layer,
+			      u32 start_canvas);
+void vframe_canvas_set(struct canvas_config_s *config,
+	u32 planes,
+	u32 *index);
+bool is_layer_aisr_supported(struct video_layer_s *layer);
+ssize_t reg_dump_store(const struct class *cla,
+				 const struct class_attribute *attr,
+				const char *buf, size_t count);
+u32 frc_get_n2m_ratio(void);
+bool frc_n2m_worked(void);
+bool frc_n2m_1st_frame_worked(struct video_layer_s *layer);
+bool frc_n2m_is_stable(struct video_layer_s *layer);
+bool check_aisr_need_disable(struct video_layer_s *layer);
+bool is_aisr_enable(struct video_layer_s *layer);
+#ifndef CONFIG_AMLOGIC_VIDEO_COMPOSER
+bool get_lowlatency_mode(void);
+#endif
+#endif

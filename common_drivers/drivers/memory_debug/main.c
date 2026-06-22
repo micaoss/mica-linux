@@ -1,0 +1,224 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2019 Amlogic, Inc. All rights reserved.
+ */
+
+//#define DEBUG
+#include <linux/module.h>
+#include <linux/device.h>
+#include <linux/of_device.h>
+#include <linux/platform_device.h>
+#include <linux/types.h>
+#include <linux/moduleparam.h>
+#include <linux/io.h>
+#include <linux/ioport.h>
+#include <linux/mm.h>
+#include <linux/kasan.h>
+#include <linux/kthread.h>
+#include <linux/time.h>
+#include <linux/delay.h>
+#include <linux/amlogic/module_merge.h>
+#include "main.h"
+#include <linux/amlogic/aml_free_reserved.h>
+#include <linux/amlogic/aml_cma.h>
+
+unsigned long aml_free_reserved_area(void *start, void *end, int poison, const char *s)
+{
+	void *pos;
+	unsigned long pages = 0;
+
+	start = (void *)PAGE_ALIGN((unsigned long)start);
+	end = (void *)((unsigned long)end & PAGE_MASK);
+	for (pos = start; pos < end; pos += PAGE_SIZE, pages++) {
+		struct page *page = virt_to_page(pos);
+		void *direct_map_addr;
+
+		/*
+		 * 'direct_map_addr' might be different from 'pos'
+		 * because some architectures' virt_to_page()
+		 * work with aliases.  Getting the direct map
+		 * address ensures that we get a _writeable_
+		 * alias for the memset().
+		 */
+		direct_map_addr = page_address(page);
+		/*
+		 * Perform a kasan-unchecked memset() since this memory
+		 * has not been initialized.
+		 */
+		direct_map_addr = kasan_reset_tag(direct_map_addr);
+		if ((unsigned int)poison <= 0xFF)
+			memset(direct_map_addr, poison, PAGE_SIZE);
+
+		free_reserved_page(page);
+	}
+
+	if (pages && s)
+		pr_info("Freeing %s memory: %ldK\n",
+			s, pages << (PAGE_SHIFT - 10));
+
+	return pages;
+}
+EXPORT_SYMBOL(aml_free_reserved_area);
+
+#if IS_ENABLED(CONFIG_AMLOGIC_DEBUG_IOTRACE)
+#include <linux/of_address.h>
+#include <linux/of.h>
+#include <linux/amlogic/aml_iotrace.h>
+#if IS_ENABLED(CONFIG_AMLOGIC_DEBUG_IOTM)
+#include <linux/amlogic/aml_iotm.h>
+#endif
+void free_iotrace_reserved_memory(void)
+{
+	int ret;
+	struct resource res;
+	struct device_node *node = NULL;
+
+	node = of_find_node_by_path("/reserved-memory/linux,iotrace");
+	if (!node)
+		return;
+
+	/* Do nothing if linux,iotrace status is disabled */
+	if (!of_device_is_available(node))
+		return;
+
+	ret = of_address_to_resource(node, 0, &res);
+	if (ret)
+		return;
+
+	// free reserved-memory if no need
+	if (!ramoops_ftrace_en) {
+#if IS_ENABLED(CONFIG_AMLOGIC_DEBUG_IOTM)
+		unsigned int iotm_ddr_size = 0;
+
+		/* exclude iotm_ddr_size in axi_mode. */
+		if (iotm_en_ddr_size_get(&iotm_ddr_size) && iotm_monitor_mode_get() == 0)
+			res.end = res.end - PAGE_ALIGN(iotm_ddr_size);
+#endif
+		aml_free_reserved_area(__va(res.start), __va(PAGE_ALIGN(res.end)), 0,
+								"free_reserved");
+		pr_debug("free iotrace reserved_memory\n");
+	}
+}
+#endif
+
+#define MAX_CMA_TASKS 8
+struct task_struct *matched_cmatasks[MAX_CMA_TASKS];
+
+static int get_current_cma_task_nice(void)
+{
+	if (matched_cmatasks[0])
+		return task_nice(matched_cmatasks[0]);
+
+	pr_err("can not find cma task thread.\n");
+
+	return -EINVAL;
+}
+
+static int set_cma_task_nice(int nice)
+{
+	int cur_nice;
+	int i = 0;
+
+	cur_nice = get_current_cma_task_nice();
+	if (cur_nice == -EINVAL || cur_nice == nice)
+		return 0;
+
+	for (i = 0; i < MAX_CMA_TASKS; i++) {
+		if (matched_cmatasks[i])
+			set_user_nice(matched_cmatasks[i], nice);
+	}
+	pr_info("renice cma task to %d\n", nice);
+
+	return 0;
+}
+
+/*
+ * level 0: nice = -17, default value
+ * level 1: nice = -10
+ * level 2: nice = 0
+ */
+int set_cma_task_priority_level(int level)
+{
+	int ret;
+	int cma_task_level[] = {-17, -10, 0};
+
+	if (level < 0 || level > 2) {
+		pr_err("out of level range: [0-2]");
+		return -EINVAL;
+	}
+	ret = set_cma_task_nice(cma_task_level[level]);
+
+	return ret;
+}
+EXPORT_SYMBOL(set_cma_task_priority_level);
+
+static int find_cma_task_hook(void *data)
+{
+	struct task_struct *tsk;
+	int i = 0;
+	char task_name[MAX_CMA_TASKS][20] = {0};
+
+	for (i = 0; i < MAX_CMA_TASKS; i++)
+		sprintf(task_name[i], "cma_task%d", i);
+
+	while (1) {
+		rcu_read_lock();
+		for_each_process(tsk) {
+			/* skip userspace task */
+			if (tsk->mm)
+				continue;
+
+			for (i = 0; i < MAX_CMA_TASKS; i++) {
+				if (matched_cmatasks[i])
+					continue;
+				if (!strncmp(tsk->comm, task_name[i], 9)) {
+					matched_cmatasks[i] = tsk;
+					break;
+				}
+			}
+		}
+		rcu_read_unlock();
+
+		if (matched_cmatasks[0])
+			break;
+
+		msleep_interruptible(500);
+	}
+
+	return 0;
+}
+
+static int __init memory_main_init(void)
+{
+	pr_debug("### %s() start\n", __func__);
+	call_sub_init(filecache_module_init);
+	call_sub_init(aml_watch_pint_init);
+	call_sub_init(aml_reg_init);
+	call_sub_init(ddr_tool_init);
+	call_sub_init(ramdump_init);
+	call_sub_init(cma_debug_init);
+	call_sub_init(slab_debugfs_init);
+#if IS_ENABLED(CONFIG_AMLOGIC_DEBUG_IOTRACE)
+	free_iotrace_reserved_memory();
+#endif
+	pr_debug("### %s() end\n", __func__);
+
+	kthread_run(find_cma_task_hook, NULL, "find_cma_task");
+
+	return 0;
+}
+
+static void __exit memory_main_exit(void)
+{
+	ramdump_uninit();
+	ddr_tool_exit();
+	aml_reg_exit();
+	aml_watch_point_uninit();
+	filecache_module_exit();
+	cma_debug_exit();
+	slab_debugfs_exit();
+}
+
+module_init(memory_main_init);
+module_exit(memory_main_exit);
+MODULE_LICENSE("GPL v2");

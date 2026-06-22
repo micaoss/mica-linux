@@ -1,0 +1,146 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright (c) 2021 Amlogic, Inc. All rights reserved.
+ */
+
+#include <drm/amlogic/meson_drm_bind.h>
+
+#ifndef CONFIG_AMLOGIC_DRM_CUT_HDMI
+#include "meson_hdmi.h"
+#endif
+#ifndef CONFIG_AMLOGIC_DRM_CUT_HDMI_MODERN
+#include "meson_hdmi_modern.h"
+#endif
+
+#include "meson_tx_helper.h"
+#include "meson_cvbs.h"
+#ifndef CONFIG_AMLOGIC_ZAPPER_CUT
+#include "meson_lcd.h"
+#include "meson_eDP.h"
+#endif
+#include "meson_dummy.h"
+
+int meson_connector_dev_bind(struct drm_device *drm,
+	int type, struct meson_connector_dev *intf)
+{
+	/*amlogic extend lcd*/
+	if (type > DRM_MODE_MESON_CONNECTOR_PANEL_START &&
+		type < DRM_MODE_MESON_CONNECTOR_PANEL_END) {
+#ifndef CONFIG_AMLOGIC_ZAPPER_CUT
+		return meson_panel_dev_bind(drm, type, intf);
+#else
+		pr_err("Panel connector is not supported!\n");
+		return -1;
+#endif
+	}
+
+	if (type == DRM_MODE_CONNECTOR_MESON_EDP_A || type == DRM_MODE_CONNECTOR_MESON_EDP_B) {
+#ifndef CONFIG_AMLOGIC_ZAPPER_CUT
+		return meson_eDP_dev_bind(drm, type, intf);
+#else
+		pr_err("eDP connector is not supported!\n");
+		return -1;
+#endif
+	}
+
+	if (type > DRM_MODE_MESON_CONNECTOR_HDMI_START &&
+			type < DRM_MODE_MESON_CONNECTOR_HDMI_END) {
+#if !defined(CONFIG_AMLOGIC_DRM_CUT_HDMI) || !defined(CONFIG_AMLOGIC_DRM_CUT_HDMI_MODERN)
+		return meson_hdmitx_dev_bind(drm, type, intf);
+#else
+		pr_err("hdmi connector is not supported!\n");
+		return -1;
+#endif
+	}
+
+	switch (type) {
+#ifdef CONFIG_AMLOGIC_DRM_DP
+	case DRM_MODE_CONNECTOR_MESON_TX_DP_A:
+	case DRM_MODE_CONNECTOR_MESON_TX_DP_B:
+	case DRM_MODE_CONNECTOR_MESON_TX_DP_C:
+		return meson_dptx_dev_bind(drm, type, intf);
+#endif
+#ifdef CONFIG_AMLOGIC_DRM_EDP
+	case DRM_MODE_CONNECTOR_MESON_TX_EDP_A:
+	case DRM_MODE_CONNECTOR_MESON_TX_EDP_B:
+	case DRM_MODE_CONNECTOR_MESON_TX_EDP_C:
+		return meson_edp_dev_bind(drm, type, intf);
+#endif
+
+#ifndef CONFIG_AMLOGIC_DRM_CUT_CVBS
+	case DRM_MODE_CONNECTOR_TV:
+		return meson_cvbs_dev_bind(drm, type, intf);
+#endif
+
+#ifndef CONFIG_AMLOGIC_ZAPPER_CUT
+	case DRM_MODE_CONNECTOR_LVDS:
+	case DRM_MODE_CONNECTOR_DSI:
+		return meson_panel_dev_bind(drm, type, intf);
+#endif
+
+	case DRM_MODE_CONNECTOR_MESON_DUMMY_L:
+	case DRM_MODE_CONNECTOR_MESON_DUMMY_P:
+		return meson_dummy_dev_bind(drm, type, intf);
+
+	default:
+		pr_err("unknown connector tye %d\n", type);
+		return 0;
+	};
+
+	return 0;
+}
+EXPORT_SYMBOL(meson_connector_dev_bind);
+
+int meson_connector_dev_unbind(struct drm_device *drm,
+	int type, struct meson_connector_dev *intf)
+{
+	/*amlogic extend lcd*/
+	if (type > DRM_MODE_MESON_CONNECTOR_PANEL_START &&
+		type < DRM_MODE_MESON_CONNECTOR_PANEL_END) {
+#ifndef CONFIG_AMLOGIC_ZAPPER_CUT
+		return meson_panel_dev_unbind(drm, type, intf);
+#else
+		pr_err("Panel connector is not supported!\n");
+		return -1;
+#endif
+	}
+
+	if (type == DRM_MODE_CONNECTOR_MESON_EDP_A || type == DRM_MODE_CONNECTOR_MESON_EDP_B) {
+#ifndef CONFIG_AMLOGIC_ZAPPER_CUT
+		return meson_eDP_dev_unbind(drm, type, intf);
+#else
+		pr_err("eDP connector is not supported!\n");
+		return -1;
+#endif
+	}
+
+	switch (type) {
+#ifdef CONFIG_AMLOGIC_DRM_DP
+	case DRM_MODE_CONNECTOR_DisplayPort:
+		return meson_dptx_dev_unbind(drm, type, intf);
+#endif
+
+#ifndef CONFIG_AMLOGIC_DRM_CUT_CVBS
+	case DRM_MODE_CONNECTOR_TV:
+		return meson_cvbs_dev_unbind(drm, type, intf);
+#endif
+
+#ifndef CONFIG_AMLOGIC_ZAPPER_CUT
+	case DRM_MODE_CONNECTOR_LVDS:
+	case DRM_MODE_CONNECTOR_DSI:
+		return meson_panel_dev_unbind(drm, type, intf);
+	case DRM_MODE_CONNECTOR_eDP:
+		return meson_eDP_dev_unbind(drm, type, intf);
+#endif
+
+	case DRM_MODE_CONNECTOR_MESON_DUMMY_L:
+	case DRM_MODE_CONNECTOR_MESON_DUMMY_P:
+		return meson_dummy_dev_unbind(drm, type, intf);
+
+	default:
+		pr_err("unknown connector tye %d\n", type);
+		return 0;
+	};
+}
+EXPORT_SYMBOL(meson_connector_dev_unbind);
+

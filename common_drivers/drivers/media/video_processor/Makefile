@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+
+include $(srctree)/$(COMMON_DRIVERS_DIR)/drivers/media/video_processor/ppmgr/Makefile
+include $(srctree)/$(COMMON_DRIVERS_DIR)/drivers/media/video_processor/utils/Makefile
+include $(srctree)/$(COMMON_DRIVERS_DIR)/drivers/media/video_processor/pic_dev/Makefile
+include $(srctree)/$(COMMON_DRIVERS_DIR)/drivers/media/video_processor/video_dev/Makefile
+include $(srctree)/$(COMMON_DRIVERS_DIR)/drivers/media/video_processor/v4lvideo/Makefile
+include $(srctree)/$(COMMON_DRIVERS_DIR)/drivers/media/video_processor/video_composer/Makefile
+include $(srctree)/$(COMMON_DRIVERS_DIR)/drivers/media/video_processor/videotunnel/Makefile
+include $(srctree)/$(COMMON_DRIVERS_DIR)/drivers/media/video_processor/videoqueue/Makefile
+include $(srctree)/$(COMMON_DRIVERS_DIR)/drivers/media/video_processor/common/Makefile
+include $(srctree)/$(COMMON_DRIVERS_DIR)/drivers/media/video_processor/di_process/Makefile
+include $(srctree)/$(COMMON_DRIVERS_DIR)/drivers/media/video_processor/dpss_process/Makefile
+include $(srctree)/$(COMMON_DRIVERS_DIR)/drivers/media/video_processor/buf_manager/Makefile
+include $(srctree)/$(COMMON_DRIVERS_DIR)/drivers/media/video_processor/videodisplay/Makefile
+include $(srctree)/$(COMMON_DRIVERS_DIR)/drivers/media/video_processor/v2d/Makefile
+include $(srctree)/$(COMMON_DRIVERS_DIR)/drivers/media/video_processor/video_pipe_adapter/Makefile

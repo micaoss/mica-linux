@@ -1,0 +1,66 @@
+#!/usr/bin/perl -W
+# SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+#
+# Copyright (c) 2019 Amlogic, Inc. All rights reserved.
+#
+my $FILE;
+$flist = "  ";
+open($FILE, '<&STDIN');
+while (<$FILE>) {
+	chomp;
+	my $line = $_;
+	my $new = "";
+	if($line =~/^[AM]\s+(.+\.[cChH])/)
+	{
+		$new = $1;
+	}
+	elsif(/^[AM]\s+(.+\.(?:dts|dtsi))\b/i)
+	{
+		$new = $1;
+	}
+	if( -e $new)
+	{
+		$flist = $flist.$new."  ";
+	}
+
+}
+close $FILE;
+
+if($flist =~/^\s*$/)
+{
+	#print "\n LicenceCheck exit:No *.[CcHh] added.\n\n";
+	exit 0;
+}
+else
+{
+	print "\n Check :$flist\n";
+}
+
+$match = "Licence_WARN: <";
+$pl = "./scripts/amlogic/licence_check.pl";
+$out = 0;
+$result_0 = `$pl --nofix $flist`;
+if($result_0 =~/$match/)
+{
+	$flist="";
+	$out =1;
+	print $result_0;
+
+	my @license_files;
+	while ($result_0 =~ /Licence_WARN:\s*<([^>]+)>/g) {
+		push @license_files, $1;
+	}
+
+	foreach my $file (@license_files) {
+		#print "- $file\n";
+		$flist.=" $file";
+	}
+
+	print "\n  Licence Check Warning, For amlogic drivers only, it is recommended to ignore third-party code\n";
+	print "\n  please try to fix:\n  $pl $flist\n\n"
+}
+else
+{
+	print "\n  Licence Check OK\n\n"
+}
+exit $out;

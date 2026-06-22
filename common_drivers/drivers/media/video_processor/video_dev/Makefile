@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+
+#
+# Makefile for the amlogic video device interface device drivers.
+#
+
+$(MEDIA_MODULE_NAME)-$(CONFIG_AMLOGIC_V4L_VIDEO2) += video_processor/video_dev/amlvideo2.o

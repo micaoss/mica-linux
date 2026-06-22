@@ -1,0 +1,23 @@
+#!/bin/bash
+# SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+#
+# Copyright (c) 2019 Amlogic, Inc. All rights reserved.
+#
+
+ROOT_DIR=`pwd`
+
+ARCH=arm
+DEFCONFIG=amlogic_gx32_defconfig
+
+KCONFIG_CONFIG=${ROOT_DIR}/common_drivers/arch/${ARCH}/configs/${DEFCONFIG}
+export KCONFIG_CONFIG
+
+${ROOT_DIR}/common/scripts/kconfig/merge_config.sh -m -r \
+	${ROOT_DIR}/common_drivers/arch/${ARCH}/configs/a32_base_defconfig  \
+	${ROOT_DIR}/common_drivers/arch/${ARCH}/configs/amlogic_a32.fragment  \
+	${ROOT_DIR}/common_drivers/arch/${ARCH}/configs/amlogic_gcc32_defconfig\
+
+export -n KCONFIG_CONFIG
+
+source ${ROOT_DIR}/common_drivers/scripts/amlogic/mk_smarthome_common.sh $@
+rm ${KCONFIG_CONFIG}*

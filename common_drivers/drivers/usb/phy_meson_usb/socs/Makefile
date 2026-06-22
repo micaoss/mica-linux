@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: GPL-2.0
+
+$(MODULE_NAME)-$(CONFIG_MESON_USBPHY) += phy_meson_usb/socs/phy-meson-sm1-usb.o
+$(MODULE_NAME)-$(CONFIG_MESON_USBPHY) += phy_meson_usb/socs/phy-meson-sc2-usb.o
+$(MODULE_NAME)-$(CONFIG_MESON_USBPHY) += phy_meson_usb/socs/phy-meson-s4-usb.o
+$(MODULE_NAME)-$(CONFIG_MESON_USBPHY) += phy_meson_usb/socs/phy-meson-t7c-usb.o
+$(MODULE_NAME)-$(CONFIG_MESON_USBPHY) += phy_meson_usb/socs/phy-meson-a5-usb.o
+$(MODULE_NAME)-$(CONFIG_MESON_USBPHY) += phy_meson_usb/socs/phy-meson-s5-usb.o
+$(MODULE_NAME)-$(CONFIG_MESON_USBPHY) += phy_meson_usb/socs/phy-meson-t5m-usb.o
+$(MODULE_NAME)-$(CONFIG_MESON_USBPHY) += phy_meson_usb/socs/phy-meson-a4-usb.o
+$(MODULE_NAME)-$(CONFIG_MESON_USBPHY) += phy_meson_usb/socs/phy-meson-txhd2-usb.o
+$(MODULE_NAME)-$(CONFIG_MESON_USBPHY) += phy_meson_usb/socs/phy-meson-s7-usb.o
+$(MODULE_NAME)-$(CONFIG_MESON_USBPHY) += phy_meson_usb/socs/phy-meson-s7d-usb.o
+$(MODULE_NAME)-$(CONFIG_MESON_USBPHY) += phy_meson_usb/socs/phy-meson-s6-usb.o
+$(MODULE_NAME)-$(CONFIG_MESON_USBPHY) += phy_meson_usb/socs/phy-meson-t6d-usb.o
+$(MODULE_NAME)-$(CONFIG_MESON_USBPHY) += phy_meson_usb/socs/phy-meson-t6w-usb.o
+$(MODULE_NAME)-$(CONFIG_MESON_USBPHY) += phy_meson_usb/socs/phy-meson-t6x-usb.o

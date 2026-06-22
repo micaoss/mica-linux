@@ -1,0 +1,1718 @@
+load("//build/kernel/kleaf:kernel.bzl", "kernel_module")
+load("//common_drivers:amlogic_utils.bzl", "kernel_select", "ddk_deps_select", "media_modules_cflag")
+
+genrule(
+    name = "generate_version_header",
+    srcs = [
+        "version_control.sh",
+        "VERSION",
+    ],
+    outs = ["drivers/frame_provider/decoder/utils/vdec_version.h"],
+    cmd = "mkdir -p $(@D)&& bash $(location version_control.sh) DDK > $@",
+    visibility = ["//visibility:public"],
+)
+
+genrule(
+    name = "ddk_extra_cflag",
+    outs = ["drivers/include/media_extra.h"],
+    cmd = "mkdir -p $(@D) && bash $(location ddk_extra_cflag.sh) '" + media_modules_cflag + "' > $@",
+    tools = ["ddk_extra_cflag.sh"],
+    visibility = ["//visibility:public"],
+)
+
+# decoder ko format to be compiled
+TARGET_VENDOR_MEDIA_VVC_SUPPORT = True
+TARGET_VENDOR_MEDIA_VC1_SUPPORT = True
+TARGET_VENDOR_MEDIA_H264_SUPPORT = True
+TARGET_VENDOR_MEDIA_H265_SUPPORT = True
+TARGET_VENDOR_MEDIA_MPEG2_SUPPORT = True
+TARGET_VENDOR_MEDIA_MPEG4_SUPPORT = True
+TARGET_VENDOR_MEDIA_VP9_SUPPORT = True
+TARGET_VENDOR_MEDIA_MJPEG_SUPPORT = True
+TARGET_VENDOR_MEDIA_AVS_SUPPORT = True
+TARGET_VENDOR_MEDIA_AVS2_SUPPORT = True
+TARGET_VENDOR_MEDIA_AVS3_SUPPORT = True
+TARGET_VENDOR_MEDIA_AV1_SUPPORT = True
+
+outs_common = [
+    "amvdec_ports/amvdec_ports.ko",
+        "common/firmware/firmware.ko",
+        "common/media_clock/media_clock.ko",
+        "frame_provider/decoder/avbcd/amvdec_avbcd.ko",
+        "frame_provider/decoder/utils/amvdec_debug_port.ko",
+        "frame_provider/decoder/utils/decoder_common.ko",
+        "frame_provider/aml_dhp/aml_dhp.ko",
+        "framerate_adapter/video_framerate_adapter.ko",
+        "frame_sink/encoder/common/encoder_common.ko",
+        "frame_sink/encoder/h264/encoder.ko",
+        "frame_sink/encoder/h265/vpu.ko",
+        "frame_sink/encoder/jpeg/jpegenc.ko",
+        "frame_sink/encoder/memalloc/memalloc.ko",
+        "frame_sink/encoder/multi/amvenc_multi.ko",
+        "frame_sink/encoder/vcenc/vc8000.ko",
+        "media_sync/av_sync/media_sync.ko",
+        "media_sync/pts_server/pts_server.ko",
+        "stream_input/parser/hw_demux/aml_hardware_dmx.ko",
+        "stream_input/stream_input.ko",
+]
+
+outs_h266 = [
+    "frame_provider/decoder/h266/amvdec_h266.ko",
+    "frame_provider/decoder_v4l/h266/amvdec_h266_v4l.ko",
+]
+
+outs_vc1 = [
+    "frame_provider/decoder/vc1/amvdec_vc1.ko",
+    "frame_provider/decoder_v4l/vc1/amvdec_vc1_v4l.ko",
+    "frame_provider/decoder_v4l/vc1_multi/amvdec_mvc1_v4l.ko",
+]
+
+outs_h264 = [
+    "frame_provider/decoder/h264_multi/amvdec_mh264.ko",
+    "frame_provider/decoder/h264_mvc/amvdec_h264mvc.ko",
+    "frame_provider/decoder_v4l/h264_multi/amvdec_mh264_v4l.ko",
+]
+
+outs_h265 = [
+    "frame_provider/decoder/h265/amvdec_h265.ko",
+    "frame_provider/decoder/h265_fb/amvdec_h265_fb.ko",
+    "frame_provider/decoder_v4l/h265/amvdec_h265_v4l.ko",
+    "frame_provider/decoder_v4l/h265_fb/amvdec_h265_fb_v4l.ko",
+]
+
+outs_mpeg12 = [
+    "frame_provider/decoder/mpeg12/amvdec_mmpeg12.ko",
+    "frame_provider/decoder_v4l/mpeg12/amvdec_mmpeg12_v4l.ko",
+]
+outs_mpeg4 = [
+    "frame_provider/decoder_v4l/mpeg4/amvdec_mmpeg4_v4l.ko",
+    "frame_provider/decoder/mpeg4/amvdec_mmpeg4.ko",
+]
+outs_vp9 = [
+    "frame_provider/decoder_v4l/vp9/amvdec_vp9_v4l.ko",
+    "frame_provider/decoder_v4l/vp9_fb/amvdec_vp9_fb_v4l.ko",
+    "frame_provider/decoder/vp9/amvdec_vp9.ko",
+    "frame_provider/decoder/vp9_fb/amvdec_vp9_fb.ko",
+]
+outs_mjpeg = [
+    "frame_provider/decoder/mjpeg/amvdec_mmjpeg.ko",
+    "frame_provider/decoder_v4l/mjpeg/amvdec_mmjpeg_v4l.ko",
+]
+
+outs_avs = [
+    "frame_provider/decoder/avs_multi/amvdec_mavs.ko",
+    "frame_provider/decoder_v4l/avs_multi/amvdec_mavs_v4l.ko",
+]
+
+outs_avs2 = [
+    "frame_provider/decoder/avs2/amvdec_avs2.ko",
+    "frame_provider/decoder/avs2_fb/amvdec_avs2_fb.ko",
+    "frame_provider/decoder_v4l/avs2/amvdec_avs2_v4l.ko",
+    "frame_provider/decoder_v4l/avs2_fb/amvdec_avs2_fb_v4l.ko",
+]
+
+outs_avs3 = [
+    "frame_provider/decoder/avs3/amvdec_avs3.ko",
+    "frame_provider/decoder_v4l/avs3/amvdec_avs3_v4l.ko",
+]
+
+outs_av1 = [
+    "frame_provider/decoder_v4l/vav1/amvdec_av1_v4l.ko",
+    "frame_provider/decoder_v4l/vav1_fb/amvdec_av1_fb_v4l.ko",
+    "frame_provider/decoder_v4l/vav1_t5d/amvdec_av1_t5d_v4l.ko",
+    "frame_provider/decoder/vav1/amvdec_av1.ko",
+    "frame_provider/decoder/vav1_fb/amvdec_av1_fb.ko",
+]
+outs = outs_common + (outs_h266 if TARGET_VENDOR_MEDIA_VVC_SUPPORT else [])
+outs = outs + (outs_vc1 if TARGET_VENDOR_MEDIA_VC1_SUPPORT else [])
+
+outs = outs + (outs_h264 if TARGET_VENDOR_MEDIA_H264_SUPPORT else [])
+outs = outs + (outs_h265 if TARGET_VENDOR_MEDIA_H265_SUPPORT else [])
+outs = outs + (outs_mpeg12 if TARGET_VENDOR_MEDIA_MPEG2_SUPPORT else [])
+outs = outs + (outs_mpeg4 if TARGET_VENDOR_MEDIA_MPEG4_SUPPORT else [])
+outs = outs + (outs_vp9 if TARGET_VENDOR_MEDIA_VP9_SUPPORT else [])
+outs = outs + (outs_mjpeg if TARGET_VENDOR_MEDIA_MJPEG_SUPPORT else [])
+outs = outs + (outs_avs if TARGET_VENDOR_MEDIA_AVS_SUPPORT else [])
+outs = outs + (outs_avs2 if TARGET_VENDOR_MEDIA_AVS2_SUPPORT else [])
+outs = outs + (outs_avs3 if TARGET_VENDOR_MEDIA_AVS3_SUPPORT else [])
+outs = outs + (outs_av1 if TARGET_VENDOR_MEDIA_AV1_SUPPORT else [])
+
+
+kernel_module(
+    name = "media",
+    srcs = glob(
+        ["**"],
+        exclude = [
+            "BUILD.bazel",
+            "**/*.bzl",
+            "**/*.mk",
+            "**/*.bp",
+        ],
+    ),
+    outs = outs,
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+)
+
+load("//build/kernel/kleaf:kernel.bzl", "ddk_headers", "ddk_module")
+ddk_headers(
+    name = "media_headers",
+    hdrs = glob([
+        "drivers/include/*.h",
+        "drivers/include/regs/*.h",
+        "drivers/amvdec_ports/*.h",
+        "drivers/amvdec_ports/utils/*.h",
+        "drivers/amvdec_ports/decoder/*.h",
+        "drivers/common/media_utils/*.h",
+        "drivers/common/media_clock/clk/*.h",
+        "drivers/common/media_clock/switch/*.h",
+        "drivers/common/chips/*.h",
+        "drivers/common/firmware/*.h",
+        "drivers/common/register/*.h",
+        "drivers/stream_input/amports/*.h",
+        "drivers/stream_input/parser/*.h",
+        "drivers/frame_provider/decoder/utils/*.h",
+        "drivers/frame_provider/aml_dhp/*.h",
+        "drivers/framerate_adapter/*.h",
+        "drivers/media_sync/pts_server/*.h",
+        "drivers/media_sync/av_sync/*.h",
+        "drivers/frame_provider/decoder/vav1_fb/av1_fb_hw.c",
+        "drivers/frame_provider/decoder/avs2_fb/avs2_fb_hw.c",
+        "drivers/frame_provider/decoder/avs3/avs3_fb_hw.c",
+        "drivers/frame_provider/decoder/h265_fb/h265_fb_hw.c",
+        "drivers/frame_provider/decoder/h266/h266_bufmgr.c",
+        "drivers/frame_provider/decoder_v4l/vav1_fb/av1_fb_hw.c",
+        "drivers/frame_provider/decoder_v4l/avs2_fb/avs2_fb_hw.c",
+        "drivers/frame_provider/decoder_v4l/avs3/avs3_fb_hw.c",
+        "drivers/frame_provider/decoder_v4l/h265_fb/h265_fb_hw.c",
+        "drivers/frame_provider/decoder_v4l/h266/h266_bufmgr.c",
+    ]) + [":generate_version_header"] + [":ddk_extra_cflag"],
+    includes = [
+        "drivers/frame_provider/decoder/utils",
+        "drivers/include"
+    ],
+    linux_includes = [
+        "include",
+        "include/uapi",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+ddk_module(
+    name = "media_clock",
+    srcs = glob(
+        [
+            "drivers/common/media_clock/clk/*.c",
+            "drivers/common/media_clock/clk/*.h",
+            "drivers/common/media_clock/switch/*.c",
+            "drivers/common/media_clock/switch/*.h",
+            "drivers/common/chips/*.c",
+            "drivers/common/chips/*.h",
+            "drivers/common/register/*.c",
+            "drivers/common/register/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+    ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[media_clock]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "media_clock.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+    ]),
+)
+
+ddk_module(
+    name = "firmware",
+    srcs = glob(
+        [
+            "drivers/common/firmware/*.c",
+            "drivers/common/firmware/*.h",
+            "drivers/common/media_utils/*.c",
+            "drivers/common/media_utils/*.h",        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[firmware]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "firmware.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/tee:amlogic-tee",
+        "//driver_modules/media_modules:media_clock",
+    ]),
+)
+
+ddk_module(
+    name = "pts_server",
+    srcs = glob(
+        [
+            "drivers/media_sync/pts_server/*.c",
+            "drivers/media_sync/pts_server/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[pts_server]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "pts_server.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+    ]),
+)
+
+ddk_module(
+    name = "decoder_common",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder/utils/aml_buf_helper.h",
+            "drivers/frame_provider/decoder/utils/amlogic_fbc_hook.c",
+            "drivers/frame_provider/decoder/utils/amlogic_fbc_hook.h",
+            "drivers/frame_provider/decoder/utils/amstream_profile.c",
+            "drivers/frame_provider/decoder/utils/amvdec.c",
+            "drivers/frame_provider/decoder/utils/amvdec.h",
+            "drivers/frame_provider/decoder/utils/config_parser.c",
+            "drivers/frame_provider/decoder/utils/config_parser.h",
+            "drivers/frame_provider/decoder/utils/decoder_bmmu_box.c",
+            "drivers/frame_provider/decoder/utils/decoder_bmmu_box.h",
+            "drivers/frame_provider/decoder/utils/decoder_dma_alloc.c",
+            "drivers/frame_provider/decoder/utils/decoder_dma_alloc.h",
+            "drivers/frame_provider/decoder/utils/decoder_mmu_box.c",
+            "drivers/frame_provider/decoder/utils/decoder_mmu_box.h",
+            "drivers/frame_provider/decoder/utils/decoder_report.c",
+            "drivers/frame_provider/decoder/utils/decoder_report.h",
+            "drivers/frame_provider/decoder/utils/firmware.h",
+            "drivers/frame_provider/decoder/utils/frame_check.c",
+            "drivers/frame_provider/decoder/utils/frame_check.h",
+            "drivers/frame_provider/decoder/utils/utils.c",
+            "drivers/frame_provider/decoder/utils/vdec.c",
+            "drivers/frame_provider/decoder/utils/vdec_canvas_utils.c",
+            "drivers/frame_provider/decoder/utils/vdec_canvas_utils.h",
+            "drivers/frame_provider/decoder/utils/vdec_feature.c",
+            "drivers/frame_provider/decoder/utils/vdec_feature.h",
+            "drivers/frame_provider/decoder/utils/vdec_ge2d_utils.c",
+            "drivers/frame_provider/decoder/utils/vdec_ge2d_utils.h",
+            "drivers/frame_provider/decoder/utils/vdec.h",
+            "drivers/frame_provider/decoder/utils/vdec_input.c",
+            "drivers/frame_provider/decoder/utils/vdec_input.h",
+            "drivers/frame_provider/decoder/utils/vdec_power_ctrl.c",
+            "drivers/frame_provider/decoder/utils/vdec_power_ctrl.h",
+            "drivers/frame_provider/decoder/utils/vdec_profile.c",
+            "drivers/frame_provider/decoder/utils/vdec_profile.h",
+            "drivers/frame_provider/decoder/utils/vdec_sync.c",
+            "drivers/frame_provider/decoder/utils/vdec_sync.h",
+            "drivers/frame_provider/decoder/utils/vdec_trace.h",
+            "drivers/frame_provider/decoder/utils/vdec_v4l2_buffer_ops.c",
+            "drivers/frame_provider/decoder/utils/vdec_v4l2_buffer_ops.h",
+            "drivers/frame_provider/decoder/utils/dma_buf_mgr.c",
+            "drivers/frame_provider/decoder/utils/dma_buf_mgr.c",
+            "drivers/frame_provider/decoder/utils/debug/dos_axi_monitor.c",
+            "drivers/frame_provider/decoder/utils/debug/dos_axi_monitor.h",
+            "drivers/frame_provider/decoder/utils/vdec_res/av1_res.c",
+            "drivers/frame_provider/decoder/utils/vdec_res/avs2_res.c",
+            "drivers/frame_provider/decoder/utils/vdec_res/avs3_res.c",
+            "drivers/frame_provider/decoder/utils/vdec_res/avs_res.c",
+            "drivers/frame_provider/decoder/utils/vdec_res/h264_res.c",
+            "drivers/frame_provider/decoder/utils/vdec_res/h265_res.c",
+            "drivers/frame_provider/decoder/utils/vdec_res/h266_res.c",
+            "drivers/frame_provider/decoder/utils/vdec_res/mjpeg_res.c",
+            "drivers/frame_provider/decoder/utils/vdec_res/mpeg12_res.c",
+            "drivers/frame_provider/decoder/utils/vdec_res/mpeg4_res.c",
+            "drivers/frame_provider/decoder/utils/vdec_res/vc1_res.c",
+            "drivers/frame_provider/decoder/utils/vdec_res/vdec_res.c",
+            "drivers/frame_provider/decoder/utils/vdec_res/vdec_res.h",
+            "drivers/frame_provider/decoder/utils/vdec_res/vdec_res_priv.c",
+            "drivers/frame_provider/decoder/utils/vdec_res/vdec_res_priv.h",
+            "drivers/frame_provider/decoder/utils/vdec_res/vp9_res.c",
+            "drivers/frame_provider/decoder/utils/vdec_dw.c",
+            "drivers/frame_provider/decoder/utils/vdec_dw.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        ":generate_version_header",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    includes = ["drivers/frame_provider/decoder/utils"],
+    local_defines = [
+        "pr_fmt(fmt)=\"[decoder_common]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "decoder_common.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//common_drivers/drivers/memory_debug:amlogic-memory-debug",
+        "//common_drivers/drivers/tee:amlogic-tee",
+        "//common_drivers/drivers/power:amlogic-power",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:pts_server",
+        "//driver_modules/media_modules:media_headers",
+    ]),
+)
+
+ddk_module(
+    name = "stream_input",
+    srcs = glob(
+        [
+            "drivers/stream_input/amports/*.c",
+            "drivers/stream_input/amports/*.h",
+            "drivers/stream_input/parser/*.c",
+            "drivers/stream_input/parser/*.h",
+            "drivers/stream_input/subtitle/*.c",
+            "drivers/stream_input/subtitle/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[stream_input]: \" fmt",
+        "DDK_DEFINE",
+],
+    out = "stream_input.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:pts_server",
+        "//driver_modules/media_modules:decoder_common",
+    ]),
+)
+
+ddk_module(
+    name = "video_framerate_adapter",
+    srcs = glob(
+        [
+            "drivers/framerate_adapter/*.c",
+            "drivers/framerate_adapter/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[video_framerate_adapter]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "video_framerate_adapter.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//driver_modules/media_modules:decoder_common",
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_ports",
+    srcs = glob(
+        [
+            "drivers/amvdec_ports/*.c",
+            "drivers/amvdec_ports/*.h",
+            "drivers/amvdec_ports/decoder/vdec_h264_if.c",
+            "drivers/amvdec_ports/decoder/vdec_hevc_if.c",
+            "drivers/amvdec_ports/decoder/vdec_vp9_if.c",
+            "drivers/amvdec_ports/decoder/vdec_mpeg12_if.c",
+            "drivers/amvdec_ports/decoder/vdec_mpeg4_if.c",
+            "drivers/amvdec_ports/decoder/vdec_mjpeg_if.c",
+            "drivers/amvdec_ports/decoder/vdec_avs_if.c",
+            "drivers/amvdec_ports/decoder/vdec_av1_if.c",
+            "drivers/amvdec_ports/decoder/vdec_avs2_if.c",
+            "drivers/amvdec_ports/decoder/vdec_avs3_if.c",
+            "drivers/amvdec_ports/decoder/vdec_vc1_if.c",
+            "drivers/amvdec_ports/decoder/vdec_h266_if.c",
+            "drivers/amvdec_ports/decoder/vdec_vp9_trigger.h",
+            "drivers/amvdec_ports/utils/aml_dec_trace.c",
+            "drivers/amvdec_ports/utils/aml_dec_trace.h",
+            "drivers/amvdec_ports/utils/common.c",
+            "drivers/amvdec_ports/utils/common.h",
+            "drivers/amvdec_ports/utils/pixfmt.h",
+            "drivers/frame_provider/aml_dhp/aml_dhp_if.h"
+        ],
+    ),
+    conditional_srcs = {
+        "CONFIG_AMLOGIC_MEDIA_V4L_SOFTWARE_PARSER": {
+            True: [
+            "drivers/amvdec_ports/decoder/aml_h264_parser.c",
+            "drivers/amvdec_ports/decoder/aml_hevc_parser.c",
+            "drivers/amvdec_ports/decoder/aml_vp9_parser.c",
+            "drivers/amvdec_ports/decoder/aml_mpeg12_parser.c",
+            "drivers/amvdec_ports/decoder/aml_mpeg4_parser.c",
+            "drivers/amvdec_ports/decoder/aml_mjpeg_parser.c",
+            "drivers/amvdec_ports/utils/golomb.c",
+            "drivers/amvdec_ports/utils/golomb.h",
+            "drivers/amvdec_ports/utils/put_bits.h",
+            "drivers/amvdec_ports/utils/pixfmt.h",
+            "drivers/amvdec_ports/utils/get_bits.h",
+            ],
+        },
+    },
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_ports]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_ports.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//common_drivers/drivers/uvm:aml_uvm",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:pts_server",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input",
+    ]),
+)
+
+ddk_module(
+    name = "aml_dhp",
+    srcs = glob(
+        [
+            "drivers/frame_provider/aml_dhp/*.c",
+            "drivers/frame_provider/aml_dhp/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[aml_dhp]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "aml_dhp.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:media_clock",
+    ]),
+)
+
+
+ddk_module(
+    name = "amvdec_debug_port",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder/utils/vdec_debug_port.c",
+            "drivers/frame_provider/decoder/utils/vdec_debug_port.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_debug_port]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_debug_port.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//driver_modules/media_modules:decoder_common",
+    ]),
+)
+
+# AV1
+ddk_module(
+    name = "amvdec_av1",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder/vav1/*.c",
+            "drivers/frame_provider/decoder/vav1/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_av1]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_av1.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_av1_fb",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder/vav1_fb/aom_av1_define.h",
+            "drivers/frame_provider/decoder/vav1_fb/av1_bufmgr.c",
+            "drivers/frame_provider/decoder/vav1_fb/av1_global.h",
+            "drivers/frame_provider/decoder/vav1_fb/vav1_fb.c",
+            "drivers/frame_provider/decoder/vav1_fb/vav1.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_av1_fb]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_av1_fb.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input",
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_av1_v4l",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder_v4l/vav1/*.c",
+            "drivers/frame_provider/decoder_v4l/vav1/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_av1_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_av1_v4l.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_av1_fb_v4l",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder_v4l/vav1_fb/aom_av1_define.h",
+            "drivers/frame_provider/decoder_v4l/vav1_fb/av1_bufmgr.c",
+            "drivers/frame_provider/decoder_v4l/vav1_fb/av1_film_grain.c",
+            "drivers/frame_provider/decoder_v4l/vav1_fb/av1_global.h",
+            "drivers/frame_provider/decoder_v4l/vav1_fb/vav1_fb_v4l.c",
+            "drivers/frame_provider/decoder_v4l/vav1_fb/vav1.h",
+       ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_av1_fb_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_av1_fb_v4l.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input",
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_av1_t5d_v4l",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder_v4l/vav1_t5d/*.c",
+            "drivers/frame_provider/decoder_v4l/vav1_t5d/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_av1_t5d_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_av1_t5d_v4l.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+    ]),
+)
+
+# AVS2
+ddk_module(
+    name = "amvdec_avs2",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder/avs2/*.c",
+            "drivers/frame_provider/decoder/avs2/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_avs2]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_avs2.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:pts_server",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input"
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_avs2_fb",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder/avs2_fb/avs2_bufmgr.c",
+            "drivers/frame_provider/decoder/avs2_fb/avs2_global.h",
+            "drivers/frame_provider/decoder/avs2_fb/vavs2_fb.c",
+            "drivers/frame_provider/decoder/avs2_fb/vavs2.h",
+       ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_avs2_fb]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_avs2_fb.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:pts_server",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input"
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_avs2_v4l",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder_v4l/avs2/*.c",
+            "drivers/frame_provider/decoder_v4l/avs2/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_avs2_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_avs2_v4l.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input"
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_avs2_fb_v4l",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder_v4l/avs2_fb/avs2_bufmgr.c",
+            "drivers/frame_provider/decoder_v4l/avs2_fb/avs2_global.h",
+            "drivers/frame_provider/decoder_v4l/avs2_fb/vavs2_fb_v4l.c",
+            "drivers/frame_provider/decoder_v4l/avs2_fb/vavs2.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_avs2_fb_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_avs2_fb_v4l.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:pts_server",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input"
+    ]),
+)
+
+# AVS3
+ddk_module(
+    name = "amvdec_avs3",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder/avs3/avs3_bufmgr.c",
+            "drivers/frame_provider/decoder/avs3/avs3_global.h",
+            "drivers/frame_provider/decoder/avs3/com_def.h",
+            "drivers/frame_provider/decoder/avs3/com_picman.c",
+            "drivers/frame_provider/decoder/avs3/com_port.h",
+            "drivers/frame_provider/decoder/avs3/com_typedef.h",
+            "drivers/frame_provider/decoder/avs3/dec_eco.c",
+            "drivers/frame_provider/decoder/avs3/vavs3.c",
+            "drivers/frame_provider/decoder/avs3/vavs3.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_avs3]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_avs3.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:pts_server",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input"
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_avs3_v4l",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder_v4l/avs3/avs3_bufmgr.c",
+            "drivers/frame_provider/decoder_v4l/avs3/avs3_global.h",
+            "drivers/frame_provider/decoder_v4l/avs3/com_def.h",
+            "drivers/frame_provider/decoder_v4l/avs3/com_picman.c",
+            "drivers/frame_provider/decoder_v4l/avs3/com_port.h",
+            "drivers/frame_provider/decoder_v4l/avs3/com_typedef.h",
+            "drivers/frame_provider/decoder_v4l/avs3/dec_eco.c",
+            "drivers/frame_provider/decoder_v4l/avs3/vavs3.c",
+            "drivers/frame_provider/decoder_v4l/avs3/vavs3.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_avs3_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_avs3_v4l.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input"
+    ]),
+)
+
+# H.265
+ddk_module(
+    name = "amvdec_h265",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder/h265/*.c",
+            "drivers/frame_provider/decoder/h265/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_h265]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_h265.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:pts_server",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input"
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_h265_fb",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder/h265_fb/vh265_fb.c",
+            "drivers/frame_provider/decoder/h265_fb/vh265.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_h265_fb]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_h265_fb.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:pts_server",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input"
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_h265_v4l",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder_v4l/h265/*.c",
+            "drivers/frame_provider/decoder_v4l/h265/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_h265_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_h265_v4l.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input"
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_h265_fb_v4l",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder_v4l/h265_fb/vh265_fb_v4l.c",
+            "drivers/frame_provider/decoder_v4l/h265_fb/vh265.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_h265_fb_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_h265_fb_v4l.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input",
+    ]),
+)
+
+# H.266
+ddk_module(
+    name = "amvdec_h266",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder/h266/h266_global.h",
+            "drivers/frame_provider/decoder/h266/param.h",
+            "drivers/frame_provider/decoder/h266/vh266.c",
+            "drivers/frame_provider/decoder/h266/vh266.h",
+            "drivers/frame_provider/decoder/h266/vvc_global.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_h266]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_h266.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:pts_server",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input"
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_h266_v4l",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder_v4l/h266/h266_global.h",
+            "drivers/frame_provider/decoder_v4l/h266/param.h",
+            "drivers/frame_provider/decoder_v4l/h266/vh266.c",
+            "drivers/frame_provider/decoder_v4l/h266/vh266.h",
+            "drivers/frame_provider/decoder_v4l/h266/vvc_global.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_h266_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_h266_v4l.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:pts_server",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input"
+    ]),
+)
+
+# AVS
+ddk_module(
+    name = "amvdec_mavs",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder/avs_multi/*.c",
+            "drivers/frame_provider/decoder/avs_multi/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mavs]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_mavs.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:pts_server",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input"
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_mavs_v4l",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder_v4l/avs_multi/*.c",
+            "drivers/frame_provider/decoder_v4l/avs_multi/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mavs_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_mavs_v4l.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//common_drivers/drivers/uvm:aml_uvm",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input"
+    ]),
+)
+
+# H.264
+ddk_module(
+    name = "amvdec_mh264",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder/h264_multi/*.c",
+            "drivers/frame_provider/decoder/h264_multi/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mh264]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_mh264.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:pts_server",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input"
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_mh264_v4l",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder_v4l/h264_multi/*.c",
+            "drivers/frame_provider/decoder_v4l/h264_multi/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mh264_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_mh264_v4l.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/cpu_info:amlogic-cpuinfo",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//common_drivers/drivers/uvm:aml_uvm",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input"
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_h264mvc",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder/h264_mvc/*.c",
+            "drivers/frame_provider/decoder/h264_mvc/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_h264mvc]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_h264mvc.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+    ]),
+)
+
+# MJPEG
+ddk_module(
+    name = "amvdec_mmjpeg",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder/mjpeg/vmjpeg_multi.c",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mmjpeg]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_mmjpeg.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:pts_server",
+        "//driver_modules/media_modules:decoder_common",
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_mmjpeg_v4l",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder_v4l/mjpeg/vmjpeg_multi.c",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mmjpeg_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_mmjpeg_v4l.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+    ]),
+)
+
+# MPEG2
+ddk_module(
+    name = "amvdec_mmpeg12",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder/mpeg12/vmpeg12_multi.c",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mmpeg12]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_mmpeg12.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:pts_server",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input"
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_mmpeg12_v4l",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder_v4l/mpeg12/vmpeg12_multi.c",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mmpeg12_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_mmpeg12_v4l.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//common_drivers/drivers/uvm:aml_uvm",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input"
+    ]),
+)
+
+# MPEG4
+ddk_module(
+    name = "amvdec_mmpeg4",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder/mpeg4/vmpeg4_multi.c",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mmpeg4]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_mmpeg4.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:pts_server",
+        "//driver_modules/media_modules:decoder_common",
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_mmpeg4_v4l",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder_v4l/mpeg4/vmpeg4_multi.c",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mmpeg4_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_mmpeg4_v4l.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//common_drivers/drivers/uvm:aml_uvm",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+    ]),
+)
+
+# VC-1
+ddk_module(
+    name = "amvdec_vc1",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder/vc1/*.c",
+            "drivers/frame_provider/decoder/vc1/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_vc1]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_vc1.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_vc1_v4l",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder_v4l/vc1/*.c",
+            "drivers/frame_provider/decoder_v4l/vc1/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_vc1_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_vc1_v4l.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//common_drivers/drivers/uvm:aml_uvm",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_mvc1_v4l",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder_v4l/vc1_multi/*.c",
+            "drivers/frame_provider/decoder_v4l/vc1_multi/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_mvc1_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_mvc1_v4l.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//common_drivers/drivers/uvm:aml_uvm",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+    ]),
+)
+
+# VP9
+ddk_module(
+    name = "amvdec_vp9",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder/vp9/*.c",
+            "drivers/frame_provider/decoder/vp9/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_vp9]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_vp9.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//common_drivers/drivers/tee:amlogic-tee",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:pts_server",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input"
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_vp9_fb",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder/vp9_fb/*.c",
+            "drivers/frame_provider/decoder/vp9_fb/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_vp9_fb]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_vp9_fb.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//common_drivers/drivers/tee:amlogic-tee",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:pts_server",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input"
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_vp9_v4l",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder_v4l/vp9/*.c",
+            "drivers/frame_provider/decoder_v4l/vp9/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_vp9_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_vp9_v4l.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//common_drivers/drivers/tee:amlogic-tee",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input"
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_vp9_fb_v4l",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder_v4l/vp9_fb/*.c",
+            "drivers/frame_provider/decoder_v4l/vp9_fb/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_vp9_fb_v4l]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_vp9_fb_v4l.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//common_drivers/drivers/tee:amlogic-tee",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+        "//driver_modules/media_modules:stream_input",
+    ]),
+)
+
+ddk_module(
+    name = "amvdec_avbcd",
+    srcs = glob(
+        [
+            "drivers/frame_provider/decoder/avbcd/*.c",
+            "drivers/frame_provider/decoder/avbcd/*.h",
+        ],
+    ),
+    hdrs = [
+        "//driver_modules/media_modules:media_headers",
+        "//driver_modules/media_modules:ddk_extra_cflag",
+        ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[amvdec_avbcd]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "amvdec_avbcd.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/media:aml_media",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//driver_modules/media_modules:media_clock",
+        "//driver_modules/media_modules:firmware",
+        "//driver_modules/media_modules:decoder_common",
+    ]),
+)
+
+ddk_module(
+    name = "media_sync",
+    srcs = glob([
+        "drivers/media_sync/av_sync/*.h",
+        "drivers/media_sync/av_sync/*.c",
+    ]),
+
+    hdrs = [
+        "//driver_modules/media_modules:ddk_extra_cflag",
+    ],
+    local_defines = [
+        "pr_fmt(fmt)=\"[media_sync]: \" fmt",
+        "DDK_DEFINE",
+    ],
+    out = "media_sync.ko",
+    kernel_build = kernel_select(),
+    visibility = ["//visibility:public"],
+    deps = ddk_deps_select([
+        "//common_drivers/drivers/gki_tool:amlogic-gkitool",
+        "//common_drivers/drivers/debug:amlogic-debug",
+        "//common_drivers/drivers/media:aml_media",
+        "//driver_modules/media_modules:stream_input",
+        "//common_drivers/drivers/dvb/demux:amlogic-dvb-demux",
+    ]),
+)
