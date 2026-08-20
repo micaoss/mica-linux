@@ -607,7 +607,7 @@ void ddbg_sw(bool on)
 }
 #else
 
-void ddbg_sw(enum EDI_LOG_TYPE mode, bool on)
+void ddbg_sw(unsigned int mode, bool on)
 {
 	struct di_dbg_reg_log *plog = get_dbg_reg_log();
 
