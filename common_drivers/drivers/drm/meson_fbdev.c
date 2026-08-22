@@ -14,6 +14,7 @@
 #include <linux/dma-buf.h>
 #include <linux/fb.h>
 #include <linux/amlogic/ion.h>
+#include <linux/amlogic/media/vout/vout_notify.h>
 #if IS_ENABLED(CONFIG_AMLOGIC_DEBUG_ATRACE)
 #define KERNEL_ATRACE_TAG KERNEL_ATRACE_TAG_DRM
 #include <trace/events/meson_atrace.h>
@@ -972,6 +973,7 @@ static int am_meson_fbdev_parse_config(struct drm_device *dev)
 {
 	struct meson_drm *private = dev->dev_private;
 	struct meson_vpu_pipeline *pipeline = private->pipeline;
+	const struct vinfo_s *vinfo;
 	u32 sizes[5], overlay_sizes[5];
 	int ret, tmp, i;
 
@@ -998,6 +1000,36 @@ static int am_meson_fbdev_parse_config(struct drm_device *dev)
 		private->ui_config.overlay_fb_h = overlay_sizes[3];
 		private->ui_config.overlay_fb_bpp = overlay_sizes[4];
 	}
+
+	/*
+	 * fbdev_sizes is a fixed value in the device tree, so the console
+	 * framebuffer does not follow the mode the display is actually driven
+	 * at. When the two disagree, fbcon writes scanlines of one width into a
+	 * plane scanned out at another: the image breaks into repeated strips
+	 * and whatever the OSD scaler makes of it is blurred.
+	 *
+	 * The vout server has already resolved the boot mode by the time fbdev
+	 * is set up, so prefer what is really being output and leave the device
+	 * tree value as the fallback for when no mode is known yet.
+	 */
+	vinfo = get_current_vinfo();
+	if (vinfo && vinfo->width && vinfo->height && vinfo->name &&
+	    strcmp(vinfo->name, "invalid") != 0 &&
+	    strcmp(vinfo->name, "null") != 0) {
+		if (private->ui_config.ui_w != vinfo->width ||
+		    private->ui_config.ui_h != vinfo->height)
+			DRM_INFO("fbdev: following vout mode %s (%ux%u), device tree said %ux%u\n",
+				 vinfo->name, vinfo->width, vinfo->height,
+				 private->ui_config.ui_w,
+				 private->ui_config.ui_h);
+
+		private->ui_config.ui_w = vinfo->width;
+		private->ui_config.ui_h = vinfo->height;
+		private->ui_config.fb_w = vinfo->width;
+		/* double buffered */
+		private->ui_config.fb_h = vinfo->height * 2;
+	}
+
 	/*initial fbdev zorder*/
 	for (i = 0; i < MESON_MAX_OSD; i++)
 		private->fbdev_zorder[i] = i;
