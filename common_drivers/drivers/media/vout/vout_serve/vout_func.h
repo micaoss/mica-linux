@@ -93,7 +93,11 @@ int vout3_resume(void);
 int vout3_shutdown(void);
 #endif
 
-#ifdef CONFIG_ARCH_MESON_ODROID_COMMON
+/*
+ * These only define macros, so they cost nothing where they are unused.
+ * They are needed by vout_serve.c on every configuration, not just the
+ * ones that set CONFIG_ARCH_MESON_ODROID_COMMON, so do not gate them.
+ */
 
 #define ODROID_VOUT_DEFINE_STRING_PARAM(_prefix, _getter, _name, _parser, _store, _size) \
 static int odroid_##_prefix##_set_##_name(const char *val,				\
@@ -122,7 +126,5 @@ static const struct kernel_param_ops odroid_##_prefix##_##_name##_ops = {		\
 #define ODROID_VOUT_REGISTER_PARAM(_prefix, _name, _arg, _desc)				\
 module_param_cb(_name, &odroid_##_prefix##_##_name##_ops, _arg, 0644);			\
 MODULE_PARM_DESC(_name, _desc)
-
-#endif
 
 #endif

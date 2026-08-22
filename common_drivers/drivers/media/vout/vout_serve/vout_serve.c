@@ -1421,8 +1421,15 @@ static int get_connector_type_to_compat(char *str)
 
 __setup("connector_type=", get_connector_type_to_compat);
 
-#ifdef CONFIG_ARCH_MESON_ODROID_COMMON
-/* module parameter support */
+/*
+ * Module parameter support. Not gated on CONFIG_ARCH_MESON_ODROID_COMMON:
+ * this file is linked into aml_media, which is a module here, so the
+ * __setup() handlers above expand to nothing (see the #undef at the top of
+ * this file, and init.h for the generic case). Without the parameters below
+ * nothing claims vout= or connector0_type=, get_vout_mode_uboot() keeps its
+ * "null" default, and the three handlers are static functions with no
+ * caller left, which -Werror rejects.
+ */
 static char odroid_vout_param[VMODE_NAME_LEN_MAX];
 
 static int odroid_vout_get_string(char *buf, const struct kernel_param *kp)
@@ -1480,7 +1487,6 @@ ODROID_VOUT_REGISTER_PARAM(vout, connector_type, connector0_type,
 			   "ODROID compatibility connector type for aml_media");
 ODROID_VOUT_REGISTER_PARAM(vout, vout_print, &vout_debug_print,
 			   "ODROID vout debug print enable");
-#endif
 
 /*TODO: drm to disable display/mode sysfs set.*/
 void disable_vout_mode_set_sysfs(void)

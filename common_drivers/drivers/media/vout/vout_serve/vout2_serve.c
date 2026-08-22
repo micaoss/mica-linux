@@ -1102,8 +1102,13 @@ static int get_connector1_type(char *str)
 
 __setup("connector1_type=", get_connector1_type);
 
-#ifdef CONFIG_ARCH_MESON_ODROID_COMMON
-/* module parameter support */
+/*
+ * Module parameter support, un-gated for the same reason as vout_serve.c:
+ * this file is linked into aml_media, which is a module here, so the
+ * __setup() handler above expands to nothing, leaving get_vout2_init_mode()
+ * and get_connector1_type() as static functions with no caller, which
+ * -Werror rejects.
+ */
 static char odroid_vout2_param[VMODE_NAME_LEN_MAX];
 
 static int odroid_vout2_get_string(char *buf, const struct kernel_param *kp)
@@ -1145,7 +1150,6 @@ ODROID_VOUT_REGISTER_PARAM(vout2, vout2, odroid_vout2_param,
 			   "ODROID secondary display mode for aml_media");
 ODROID_VOUT_REGISTER_PARAM(vout2, connector1_type, connector1_type,
 			   "ODROID secondary connector type for aml_media");
-#endif
 
 //MODULE_AUTHOR("Platform-BJ <platform.bj@amlogic.com>");
 //MODULE_DESCRIPTION("VOUT2 Server Module");
