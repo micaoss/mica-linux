@@ -304,7 +304,12 @@ static int hdmitx_boot_dsc_policy(char *str)
 }
 __setup("dsc_policy=", hdmitx_boot_dsc_policy);
 
-#ifdef CONFIG_ARCH_MESON_ODROID_COMMON
+/*
+ * Module parameter support, un-gated for the same reason as vout_serve.c:
+ * this file is linked into aml_media, which is a module here, so every
+ * __setup() above expands to nothing and the seven parse handlers are
+ * left as static functions with no caller, which -Werror rejects.
+ */
 static char odroid_hdmitx_param[64];
 
 static int odroid_hdmitx_get_string(char *buf, const struct kernel_param *kp)
@@ -415,5 +420,3 @@ ODROID_HDMITX_REGISTER_PARAM(edid_check, &tx_params.edid_check,
 			     "ODROID HDMI EDID check policy for aml_media");
 ODROID_HDMITX_REGISTER_PARAM(dsc_policy, &tx_params.dsc_policy,
 			     "ODROID HDMI DSC policy for aml_media");
-
-#endif
