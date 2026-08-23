@@ -4747,14 +4747,7 @@ static void kbase_platform_device_remove(struct platform_device *pdev)
 #endif
 {
 	struct kbase_device *kbdev = to_kbase_device(&pdev->dev);
-	struct kbase_mem_dmabuf_list *entry, *tmp;
 	if (likely(kbdev)) {
-		mutex_lock(&kbdev->kbase_dmabuf_lock);
-		list_for_each_entry_safe(entry, tmp, &kbdev->kbase_dmabuf_list.dmabuf_list, dmabuf_list) {
-			list_del(&entry->dmabuf_list);
-			kfree(entry);
-		}
-		mutex_unlock(&kbdev->kbase_dmabuf_lock);
 		kbase_device_term(kbdev);
 		dev_set_drvdata(kbdev->dev, NULL);
 		kbase_device_free(kbdev);
@@ -4847,9 +4840,6 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 			mutex_unlock(&kbdev->pm.lock);
 		}
 	}
-	kbdev->kbase_dmabuf_list.dma_buf = NULL;
-	INIT_LIST_HEAD(&kbdev->kbase_dmabuf_list.dmabuf_list);
-	mutex_init(&kbdev->kbase_dmabuf_lock);
 	return err;
 }
 

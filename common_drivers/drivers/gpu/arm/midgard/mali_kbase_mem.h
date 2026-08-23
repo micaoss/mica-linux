@@ -343,6 +343,7 @@ struct kbase_mem_phy_alloc {
 			unsigned int current_mapping_usage_count;
 			struct sg_table *sgt;
 			bool need_sync;
+			bool usage_tracked;
 		} umm;
 		struct {
 			u64 stride;

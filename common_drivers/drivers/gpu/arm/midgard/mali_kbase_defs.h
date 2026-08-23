@@ -58,6 +58,7 @@
 #include <linux/atomic.h>
 #include <linux/mempool.h>
 #include <linux/notifier.h>
+#include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/file.h>
 #include <linux/sizes.h>
@@ -711,7 +712,7 @@ struct kbase_devfreq_queue_info {
  */
 struct kbase_process {
 	pid_t tgid;
-	char *name;
+	char name[TASK_COMM_LEN];
 	size_t total_gpu_pages;
 	size_t dma_buf_pages;
 	struct list_head kctx_list;
@@ -721,23 +722,6 @@ struct kbase_process {
 
 	struct kobject kobj;
 };
-
-
-/**
- * struct kbase_mem_dmabuf_list - kbase_mem_phy_alloc dma_buf list
- * @flag:             dmabuf really used.
- * @name:             process name.
- * @dma_buf:          dma_buf pointer.
- * @dmabuf_list:      List of dma_buf.
- */
-struct kbase_mem_dmabuf_list {
-	bool flag;
-	char *name;
-	struct dma_buf *dma_buf;
-	struct list_head dmabuf_list;
-};
-
-
 
 
 /**
@@ -1331,8 +1315,6 @@ struct kbase_device {
 	struct notifier_block oom_notifier_block;
 
 	struct kobject *proc_sysfs_node;
-	struct kbase_mem_dmabuf_list kbase_dmabuf_list;
-	struct mutex kbase_dmabuf_lock;
 	struct kbase_mem_migrate mem_migrate;
 
 #if IS_ENABLED(CONFIG_SYNC_FILE)
@@ -1848,7 +1830,7 @@ struct kbase_context {
 	wait_queue_head_t event_queue;
 	pid_t tgid;
 	pid_t pid;
-	char *name;
+	char name[TASK_COMM_LEN];
 	atomic_t prioritized;
 	atomic_t used_pages;
 	atomic_t nonmapped_pages;

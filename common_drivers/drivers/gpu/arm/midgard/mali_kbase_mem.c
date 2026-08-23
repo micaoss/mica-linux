@@ -56,7 +56,6 @@ static DEFINE_STATIC_KEY_FALSE(large_pages_static_key);
 #define PAGE_METADATA_SLAB_NAME_PREFIX "page-metadata-slab-"
 #define PAGE_METADATA_SLAB_NAME_SIZE (DEVNAME_SIZE + sizeof(PAGE_METADATA_SLAB_NAME_PREFIX) + 1)
 
-extern bool dmabuf_uvm_realloc(struct dma_buf *dmabuf);
 #if MALI_JIT_PRESSURE_LIMIT_BASE
 
 /*
@@ -1953,11 +1952,11 @@ void kbase_mem_kref_free(struct kref *kref)
 		/* raw pages, external cleanup */
 		break;
 	case KBASE_MEM_TYPE_IMPORTED_UMM: {
-		struct kbase_device *kbdev = alloc->imported.umm.kctx->kbdev;
-		struct kbase_mem_dmabuf_list *entry, *tmp;
-		if (!dmabuf_uvm_realloc(alloc->imported.umm.dma_buf) &&
-		    !IS_ENABLED(CONFIG_MALI_DMA_BUF_MAP_ON_DEMAND)) {
-			WARN_ONCE(alloc->imported.umm.current_mapping_usage_count != 1,
+		struct kbase_context *kctx = alloc->imported.umm.kctx;
+
+		if (alloc->imported.umm.sgt) {
+			if (!IS_ENABLED(CONFIG_MALI_DMA_BUF_MAP_ON_DEMAND))
+				WARN_ONCE(alloc->imported.umm.current_mapping_usage_count != 1,
 				  "WARNING: expected exactly 1 mapping, got %d",
 				  alloc->imported.umm.current_mapping_usage_count);
 #if (KERNEL_VERSION(6, 1, 55) <= LINUX_VERSION_CODE)
@@ -1968,24 +1967,21 @@ void kbase_mem_kref_free(struct kref *kref)
 			dma_buf_unmap_attachment(alloc->imported.umm.dma_attachment,
 						 alloc->imported.umm.sgt, DMA_BIDIRECTIONAL);
 #endif
+			alloc->imported.umm.sgt = NULL;
 		}
+		if (alloc->imported.umm.usage_tracked) {
+			kbase_remove_dma_buf_usage(kctx, alloc);
+			alloc->imported.umm.usage_tracked = false;
+		}
+		memset(alloc->pages, 0xff, sizeof(*alloc->pages) * alloc->nents);
+		alloc->nents = 0;
+
 		/* Check if delegation of free is required. On true, return directly. The
 		 * alloc will be freed by the deferral-control later when the deferral end
 		 * condition is satisfied.
 		 */
 		if (kbase_csf_scheduler_delegate_imported_buf_alloc_free(alloc))
 			return;
-		mutex_lock(&kbdev->kbase_dmabuf_lock);
-		list_for_each_entry_safe(entry, tmp, &kbdev->kbase_dmabuf_list.dmabuf_list, dmabuf_list) {
-			if (entry->name == alloc->imported.umm.kctx->kprcs->name &&
-				entry->dma_buf == alloc->imported.umm.dma_buf && entry->flag) {
-					kbase_remove_dma_buf_usage(alloc->imported.umm.kctx,alloc);
-					list_del(&entry->dmabuf_list);
-					kfree(entry);
-					break;
-			}
-		}
-		mutex_unlock(&kbdev->kbase_dmabuf_lock);
 		dma_buf_detach(alloc->imported.umm.dma_buf, alloc->imported.umm.dma_attachment);
 		dma_buf_put(alloc->imported.umm.dma_buf);
 		break;
