@@ -268,7 +268,13 @@ void drm_logo_get_osd_reverse(u32 *index, u32 *reverse_type)
 	*reverse_type = osd_info.osd_reverse;
 }
 
-#ifdef CONFIG_ARCH_MESON_ODROID_COMMON
+/*
+ * Module parameter support, un-gated for the same reason as vout_serve.c:
+ * the __setup("osd_reverse=") above sits behind #ifndef MODULE and this
+ * file is built into aml_drm, a module here, so without the registration
+ * below drm_logo_reverse_setup() is a static function with no caller,
+ * which -Werror rejects.
+ */
 static char odroid_osd_reverse_param[32];
 
 static int odroid_drm_logo_get_string(char *buf, const struct kernel_param *kp)
@@ -365,8 +371,6 @@ ODROID_DRM_LOGO_REGISTER_PARAM(fb_height, &drm_logo_height,
 			       "ODROID logo height for aml_drm");
 ODROID_DRM_LOGO_REGISTER_PARAM(osd_reverse, odroid_osd_reverse_param,
 			       "ODROID logo reverse configuration for aml_drm");
-
-#endif
 
 #endif
 
