@@ -782,6 +782,7 @@ int meson_u2phy_u3drdu2o_set(struct amlogic_usb_v2 *phy, bool on)
 
 int meson_u2phy_aml_init(struct amlogic_usb_v2 *phy, struct meson_u2phy_priv *priv)
 {
+	union u2p_r0_v2 reg0;
 	int ret;
 
 	if (!phy->suspend_flag) {
@@ -814,6 +815,32 @@ int meson_u2phy_aml_init(struct amlogic_usb_v2 *phy, struct meson_u2phy_priv *pr
 
 	if (phy->suspend_flag && phy->current_mode != 0)
 		priv->set_mode(phy, phy->current_mode);
+
+	/*
+	 * Establish U2P_R0 before the phy config reset below, mirroring
+	 * amlogic_crg_drd_usb2_init_v0() in the 5.15 crgdrdphy driver, which
+	 * drives this hardware with working USB on this board. Nothing here
+	 * writes U2P_R0 on a cold init: the only writer is priv->set_mode(),
+	 * and the call above is guarded on current_mode, which is zero out of
+	 * the allocator -- so the phy goes through the reset pulse with
+	 * host_device, IDPULLUP0 and DRVVBUS0 clear.
+	 *
+	 * The 5.15 write is guarded by "suspend_flag == 0" and that condition
+	 * is deliberately not transcribed: the two drivers use suspend_flag
+	 * with opposite polarity. There it means "not resuming"; here it means
+	 * "init pending" and is always 1 at this point, since this function
+	 * returns early above when it is 0. Copying the condition would skip
+	 * exactly the bits that are missing.
+	 *
+	 * POR is left set, as init_v0 leaves it set. It is already set at
+	 * bootloader handover on this board, so this does not change it.
+	 */
+	reg0.d32 = readl(&phy->u2p_aml_regs[0]->r0);
+	reg0.b.POR = 1;
+	reg0.b.host_device = 1;
+	reg0.b.IDPULLUP0 = 1;
+	reg0.b.DRVVBUS0 = 1;
+	writel(reg0.d32, &phy->u2p_aml_regs[0]->r0);
 
 	usleep_range(50, 100);
 	meson_u2phy_reset_phycfg(phy);
