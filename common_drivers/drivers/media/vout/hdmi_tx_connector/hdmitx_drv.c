@@ -689,6 +689,7 @@ static int amhdmitx_probe(struct platform_device *pdev)
 	int r, ret = 0;
 	struct device *device = &pdev->dev;
 	struct device *dev;
+	struct clk *hdmi_pll_ref;
 	struct hdmitx_common *tx_comm;
 	struct hdmitx_hw_common *hw_comm;
 	struct hdmitx_tracer *tx_tracer;
@@ -709,6 +710,13 @@ static int amhdmitx_probe(struct platform_device *pdev)
 	HDMITX_DEBUG("chip_type:%d chip_name:%s\n",
 		chip_data->chip_type,
 		chip_data->chip_name);
+	if (chip_data->chip_type == MESON_CPU_ID_S7D) {
+		hdmi_pll_ref = devm_clk_get_enabled(device, "hdmi_pll_ref");
+		if (IS_ERR(hdmi_pll_ref))
+			return dev_err_probe(device, PTR_ERR(hdmi_pll_ref),
+				"failed to enable HDMI PLL reference\n");
+	}
+
 	/* allocate address space */
 	tx_comm = chip_data->hdmitx_ops->alloc_instance(device);
 	if (!tx_comm)
