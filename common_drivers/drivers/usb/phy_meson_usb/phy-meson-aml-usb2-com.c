@@ -852,6 +852,43 @@ int meson_u2phy_aml_init(struct amlogic_usb_v2 *phy, struct meson_u2phy_priv *pr
 	if (ret)
 		dev_err(phy->dev, " wait for ready timeout.\n");
 
+	/*
+	 * Release POR before the PLL is brought up. This mirrors the
+	 * MESON_USB_MODE_HOST arm of meson_u2phy_set_mode() in this file,
+	 * which is the driver's own recipe for putting U2P_R0 into host
+	 * state: read, host_device = 1, POR = 0, write back. IDPULLUP0 and
+	 * DRVVBUS0 are commented out at that site, so they are not
+	 * transcribed here; the block above sets them and this write leaves
+	 * them alone. host_device is already 1 from that block and no code
+	 * between the two writes touches U2P_R0 in software, so POR is the
+	 * only bit whose value this changes.
+	 *
+	 * That arm never runs on a cold init. s7d binds
+	 * meson_u2phy_set_mode as priv->set_mode
+	 * (socs/phy-meson-s7d-usb.c), and both of its call sites are
+	 * guarded by "phy->suspend_flag && phy->current_mode != 0";
+	 * current_mode is zero out of the kzalloc() in
+	 * meson_aml_u2phy_parse(), so the guard is false and the phy
+	 * reaches set_pll() with POR still asserted.
+	 *
+	 * Placed after the ready poll and before set_pll() because set_pll()
+	 * is the call that fails. The -ETIMEDOUT from
+	 * meson_usb2phy_wait_ready() above is logged and then discarded --
+	 * ret is overwritten below -- so the -110 that reaches the phy core
+	 * comes from the PLL, on a phy that had already failed to report
+	 * ready. Releasing POR here targets the fatal step, not the logged
+	 * one.
+	 *
+	 * NOT VERIFIED ON HARDWARE, and not a closer copy of 5.15: 5.15
+	 * amlogic_crg_drd_usb2_init_v0() runs its own set_usb_pll() with POR
+	 * still asserted and never clears it. If this helps, the 6.12 PLL
+	 * needs something the 5.15 one did not.
+	 */
+	reg0.d32 = readl(&phy->u2p_aml_regs[0]->r0);
+	reg0.b.host_device = 1;
+	reg0.b.POR = 0;
+	writel(reg0.d32, &phy->u2p_aml_regs[0]->r0);
+
 	ret = priv->set_pll(phy);
 	if (ret)
 		return ret;
