@@ -808,7 +808,14 @@ int meson_u2phy_aml_init(struct amlogic_usb_v2 *phy, struct meson_u2phy_priv *pr
 	usleep_range(50, 100);
 	//meson_u2phy_reset_comb(phy);
 
-	dev_dbg(phy->dev, "init r0~r2 0x%x 0x%x 0x%x.\n",
+	/*
+	 * Promoted from dev_dbg. With CONFIG_DYNAMIC_DEBUG unset and no
+	 * DEBUG or DYNAMIC_DEBUG_MODULE define in this directory, every
+	 * dev_dbg() here resolves to dev_no_printk() -- the readl() calls
+	 * sit in dead code and nothing is printed. This is the baseline
+	 * state, read before the U2P_R0 write that 0009 adds below.
+	 */
+	dev_info(phy->dev, "init r0~r2 0x%x 0x%x 0x%x.\n",
 			readl(&phy->u2p_aml_regs[0]->r0),
 			readl(&phy->u2p_aml_regs[0]->r1),
 			readl(&phy->u2p_aml_regs[0]->r2));
@@ -845,6 +852,32 @@ int meson_u2phy_aml_init(struct amlogic_usb_v2 *phy, struct meson_u2phy_priv *pr
 	usleep_range(50, 100);
 	meson_u2phy_reset_phycfg(phy);
 	usleep_range(50, 100);
+
+	/*
+	 * The measurement this patch exists for. This is after the U2P_R0
+	 * write 0009 adds and after the phy config reset pulse that might
+	 * clobber it, so one line answers two questions: did the write
+	 * land, and does it survive the reset.
+	 *
+	 * It cannot be read any other way on this build. CONFIG_DEVMEM is
+	 * unset so there is no /dev/mem, busybox carries no devmem applet,
+	 * this driver exposes no debugfs or sysfs register view, and a
+	 * warm reboot into U-Boot resets the phy block -- two registers in
+	 * it were measured returning to their handover values rather than
+	 * their post-kernel ones, so the U-Boot prompt cannot report what
+	 * the kernel left behind.
+	 *
+	 * Placed before the ready poll, so it reads the same state whether
+	 * or not the POR release that 0010 adds after that poll is
+	 * present. r1 bit 0 is phy_rdy, free at the same instant.
+	 *
+	 * Diagnostic only: no register is written here. It is not free of
+	 * effect, though -- a dev_info() on a serial console costs
+	 * milliseconds, which delays priv->cali() and everything after it.
+	 */
+	dev_info(phy->dev, "post-phycfg-reset r0~r1 0x%x 0x%x.\n",
+			readl(&phy->u2p_aml_regs[0]->r0),
+			readl(&phy->u2p_aml_regs[0]->r1));
 
 	priv->cali(phy);
 
