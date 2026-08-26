@@ -29,6 +29,8 @@ __setup("usb2t_mode=", meson_u2phy_get_speed);
 /* Reset usb controller. */
 int meson_u2phy_usb_reset(struct amlogic_usb_v2 *phy)
 {
+	bool pulsed = false;
+
 	if (phy->usb_reset_bit == -1U)
 		return 0;
 
@@ -41,12 +43,41 @@ int meson_u2phy_usb_reset(struct amlogic_usb_v2 *phy)
 				readl(phy->reset_regs + phy->reset_level));
 	if (!phy->usb_reset_done) {
 		phy->usb_reset_done = true;
+		pulsed = true;
 		if (phy->usb_reset_bit == 2)
 			writel((readl(phy->reset_regs) |
 				(0x1 << phy->usb_reset_bit)), phy->reset_regs);
 		else
 			writel((0x1 << phy->usb_reset_bit), phy->reset_regs);
 	}
+
+	/*
+	 * Diagnostic. Printed unconditionally, including on the path that
+	 * writes nothing, so that a failure of the guard is a line saying
+	 * "skipped" rather than an absent line -- an absence would be
+	 * indistinguishable from the module not having been reloaded.
+	 *
+	 * Every dev_dbg() in this directory compiles to dev_no_printk():
+	 * CONFIG_DYNAMIC_DEBUG is unset and nothing defines DEBUG or
+	 * DYNAMIC_DEBUG_MODULE here, so the two readbacks either side of
+	 * this block do not execute and print nothing. dev_info() is the
+	 * lowest level that reaches the kernel log at all on this build.
+	 *
+	 * Read it with dmesg, not from a serial capture. OpenRC's dmesg
+	 * service sets console_loglevel to 1 during sysinit, before udev
+	 * loads this module, so no dev_info() from this driver ever reaches
+	 * the console -- and an empty capture reads exactly like a patch
+	 * that did nothing.
+	 *
+	 * reset_level is the level register at reset_regs + 0x40; the pulse
+	 * above writes reset_regs + 0x00. It is reported as context, not as
+	 * a readback of the write -- the pulse register does not hold the
+	 * bit for a subsequent read.
+	 */
+	dev_info(phy->dev, "usb-ctrl-reset bit=%u %s reset_level=0x%x\n",
+				phy->usb_reset_bit, pulsed ? "pulsed" : "skipped",
+				readl(phy->reset_regs + phy->reset_level));
+
 	dev_dbg(phy->dev, "%s after: 0x%x.\n", __func__,
 				readl(phy->reset_regs + phy->reset_level));
 	return 0;
