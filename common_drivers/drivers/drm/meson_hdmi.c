@@ -1320,7 +1320,7 @@ int meson_hdmitx_atomic_check(struct drm_connector *connector,
 #endif
 
 	if (state->allow_modeset && new_crtc_state) {
-		if (!am_hdmi->hdmitx_on && !am_hdmi->android_path) {
+		if (!am_hdmi->hdmitx_on) {
 			new_crtc_state->connectors_changed = true;
 			DRM_ERROR("hdmitx_on changed, force modeset.\n");
 		}
@@ -2721,9 +2721,10 @@ static void meson_hdmitx_hpd_cb(void *data)
 	if (hdmitx_get_hpd_state(tx_comm))
 		am_hdmi->odroid_hpd_seen = true;
 #endif
-	if (!hdmitx_get_hpd_state(tx_comm) && !am_hdmi->android_path) {
+	if (!hdmitx_get_hpd_state(tx_comm)) {
 		drm_modeset_lock(mode_lock, NULL);
-		meson_hdmitx_disconnect_hdcp(am_hdmi);
+		if (!am_hdmi->android_path)
+			meson_hdmitx_disconnect_hdcp(am_hdmi);
 		am_hdmi->hdmitx_on = 0;
 #ifdef CONFIG_ARCH_MESON_ODROID_COMMON
 		am_hdmi->uboot_reuse_consumed = true;
