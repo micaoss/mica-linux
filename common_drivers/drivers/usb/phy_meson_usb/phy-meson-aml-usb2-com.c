@@ -29,8 +29,6 @@ __setup("usb2t_mode=", meson_u2phy_get_speed);
 /* Reset usb controller. */
 int meson_u2phy_usb_reset(struct amlogic_usb_v2 *phy)
 {
-	static int	init_count;
-
 	if (phy->usb_reset_bit == -1U)
 		return 0;
 
@@ -41,8 +39,8 @@ int meson_u2phy_usb_reset(struct amlogic_usb_v2 *phy)
 
 	dev_dbg(phy->dev, "%s initial: 0x%x.\n", __func__,
 				readl(phy->reset_regs + phy->reset_level));
-	if (!init_count) {
-		init_count++;
+	if (!phy->usb_reset_done) {
+		phy->usb_reset_done = true;
 		if (phy->usb_reset_bit == 2)
 			writel((readl(phy->reset_regs) |
 				(0x1 << phy->usb_reset_bit)), phy->reset_regs);

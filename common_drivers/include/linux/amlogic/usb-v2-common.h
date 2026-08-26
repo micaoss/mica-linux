@@ -140,6 +140,13 @@ struct amlogic_usb_v2 {
 	u32 phy_reg_reset_level_bit[USB_PHY_MAX_NUMBER];
 	u32 phy_reg_reset_bit;
 	u32 usb_reset_bit;
+	/* Set once meson_u2phy_usb_reset() has pulsed this phy's
+	 * controller reset bit. Per instance, not per module: 6.12
+	 * binds one device per phy node, so a function-static guard
+	 * fires once per module load and leaves every phy after the
+	 * first one unpulsed.
+	 */
+	bool usb_reset_done;
 	u32 usb_comb_reset_bit;
 	u32 phy_apb_reset_bit;
 	u32 pm_controller:1;
