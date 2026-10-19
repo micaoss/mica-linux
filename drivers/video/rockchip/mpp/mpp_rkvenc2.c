@@ -2075,6 +2075,14 @@ static int rkvenc_devfreq_init(struct mpp_dev *mpp)
 	if (!clk_core)
 		return 0;
 
+	/* RK3576 uses the DT clock rates without an OPP table. */
+	if (of_device_is_compatible(dev->of_node,
+				    "rockchip,rkv-encoder-rk3576-core") &&
+	    !of_property_present(dev->of_node, "operating-points-v2")) {
+		dev_info(dev, "using fixed clock rates, devfreq is disabled\n");
+		return 0;
+	}
+
 	rockchip_get_opp_data(rockchip_rkvenc_of_match, opp_info);
 	ret = rockchip_init_opp_table(dev, opp_info, "clk_core", "venc");
 	if (ret) {
@@ -2094,6 +2102,11 @@ static int rkvenc_devfreq_init(struct mpp_dev *mpp)
 static int rkvenc_devfreq_remove(struct mpp_dev *mpp)
 {
 	struct rkvenc_dev *enc = to_rkvenc_dev(mpp);
+
+	if (of_device_is_compatible(mpp->dev->of_node,
+				    "rockchip,rkv-encoder-rk3576-core") &&
+	    !of_property_present(mpp->dev->of_node, "operating-points-v2"))
+		return 0;
 
 	if (enc->mdev_info) {
 		rockchip_system_monitor_unregister(enc->mdev_info);
