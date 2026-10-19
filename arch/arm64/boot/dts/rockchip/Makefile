@@ -464,6 +464,7 @@ dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3566-roc-pc.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3576-recomputer-rk3576-devkit.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3576-recomputer-rk3576-module-devkit.dtb
 dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3588-recomputer-rk3588-devkit.dtb
+dtb-$(CONFIG_ARCH_ROCKCHIP) += rk3576-cx3576z.dtb
 subdir-y := $(dts-dirs) overlay
 
 # Armbian: Incremental: assuming overlay targets are already in the Makefile
