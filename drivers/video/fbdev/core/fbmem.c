@@ -614,7 +614,7 @@ static inline int fb_show_extra_logos(struct fb_info *info, int y, int rotate)
 int fb_prepare_logo(struct fb_info *info, int rotate)
 {
 	int depth = fb_get_color_depth(&info->var, &info->fix);
-	unsigned int yres;
+	unsigned int xres, yres;
 	int height;
 
 	memset(&fb_logo, 0, sizeof(struct logo_data));
@@ -643,12 +643,15 @@ int fb_prepare_logo(struct fb_info *info, int rotate)
 		return 0;
 	}
 
-	if (rotate == FB_ROTATE_UR || rotate == FB_ROTATE_UD)
+	if (rotate == FB_ROTATE_UR || rotate == FB_ROTATE_UD) {
+		xres = info->var.xres;
 		yres = info->var.yres;
-	else
+	} else {
+		xres = info->var.yres;
 		yres = info->var.xres;
+	}
 
-	if (fb_logo.logo->height > yres) {
+	if (fb_logo.logo->width > xres || fb_logo.logo->height > yres) {
 		fb_logo.logo = NULL;
 		return 0;
 	}

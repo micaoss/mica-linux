@@ -22,30 +22,12 @@ static bool nologo;
 module_param(nologo, bool, 0);
 MODULE_PARM_DESC(nologo, "Disables startup logo");
 
-/*
- * Logos are located in the initdata, and will be freed in kernel_init.
- * Use late_init to mark the logos as freed to prevent any further use.
- */
-
-static bool logos_freed;
-
-static int __init fb_logo_late_init(void)
-{
-	logos_freed = true;
-	return 0;
-}
-
-late_initcall_sync(fb_logo_late_init);
-
-/* logo's are marked __initdata. Use __ref to tell
- * modpost that it is intended that this function uses data
- * marked __initdata.
- */
-const struct linux_logo * __ref fb_find_logo(int depth)
+/* Board artwork is retained for late fbdev creation and VT redraw. */
+const struct linux_logo *fb_find_logo(int depth)
 {
 	const struct linux_logo *logo = NULL;
 
-	if (nologo || logos_freed)
+	if (nologo)
 		return NULL;
 
 	if (depth >= 1) {

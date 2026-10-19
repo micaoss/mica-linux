@@ -6,6 +6,9 @@
 
 #include <linux/kernel.h>
 #include <linux/devfreq.h>
+#include <linux/console.h>
+#include <linux/fb.h>
+#include <linux/fbcon.h>
 
 #include <drm/drm.h>
 #include <drm/drm_atomic.h>
@@ -365,9 +368,52 @@ static void rockchip_drm_output_poll_changed(struct drm_device *dev)
 {
 	struct rockchip_drm_private *private = dev->dev_private;
 	struct drm_fb_helper *fb_helper = private->fbdev_helper;
+	struct drm_mode_set *modeset;
+	struct fb_info *info;
+	unsigned int width = 0, height = 0;
 
-	if (fb_helper && dev->mode_config.poll_enabled && !private->loader_protect)
-		drm_fb_helper_hotplug_event(fb_helper);
+	if (!fb_helper || !dev->mode_config.poll_enabled || private->loader_protect)
+		return;
+	if (drm_fb_helper_hotplug_event(fb_helper))
+		return;
+
+	/*
+	 * HPD runs in work context. Never take console_lock under helper locks:
+	 * fbcon's mode switch calls back into the helper with this lock held.
+	 */
+	console_lock();
+	mutex_lock(&fb_helper->lock);
+	info = fb_helper->fbdev;
+	if (!info || fb_helper->delayed_hotplug) {
+		mutex_unlock(&fb_helper->lock);
+		console_unlock();
+		return;
+	}
+	mutex_lock(&fb_helper->client.modeset_mutex);
+	drm_client_for_each_modeset(modeset, &fb_helper->client) {
+		if (!modeset->num_connectors || !modeset->mode)
+			continue;
+		width = width ? min_t(unsigned int, width, modeset->mode->hdisplay + modeset->x) :
+			modeset->mode->hdisplay + modeset->x;
+		height = height ? min_t(unsigned int, height, modeset->mode->vdisplay + modeset->y) :
+			modeset->mode->vdisplay + modeset->y;
+	}
+	mutex_unlock(&fb_helper->client.modeset_mutex);
+	mutex_unlock(&fb_helper->lock);
+
+	/*
+	 * The helper reuses its allocation on reconnect. Match the text viewport
+	 * to the negotiated mode; leave detached outputs and DRM masters alone.
+	 */
+	lock_fb_info(info);
+	if (width && height && width <= info->var.xres_virtual &&
+	    height <= info->var.yres_virtual) {
+		info->var.xres = width;
+		info->var.yres = height;
+		fbcon_update_vcs(info, true);
+	}
+	unlock_fb_info(info);
+	console_unlock();
 }
 
 static int rockchip_atomic_check(struct drm_device *dev, struct drm_atomic_state *state)

@@ -557,7 +557,7 @@ static void fbcon_prepare_logo(struct vc_data *vc, struct fb_info *info,
 	unsigned short *save = NULL, *r, *q;
 	int logo_height;
 
-	if (info->fbops->owner) {
+	if (vc->vc_num != 0 || info->fbops->owner) {
 		logo_shown = FBCON_LOGO_DONTSHOW;
 		return;
 	}
@@ -2060,6 +2060,33 @@ static int fbcon_resize(struct vc_data *vc, unsigned int width,
 	return 0;
 }
 
+/* The board reserves tty1 for branding; text and graphics keep precedence. */
+static bool fbcon_show_idle_logo(struct vc_data *vc, struct fb_info *info)
+{
+	struct fbcon_ops *ops = info->fbcon_par;
+	unsigned short *p = (unsigned short *)vc->vc_origin;
+	unsigned int i;
+
+	if (vc->vc_num != 0 || !con_is_visible(vc) ||
+	    fbcon_is_inactive(vc, info) ||
+	    ops->blank_state != FB_BLANK_UNBLANK ||
+	    info->fix.type == FB_TYPE_TEXT)
+		return false;
+
+	for (i = 0; i < vc->vc_screenbuf_size / 2; i++)
+		if (scr_readw(p + i) != vc->vc_video_erase_char)
+			return false;
+
+	if (!fb_prepare_logo(info, ops->rotate))
+		return false;
+
+	vc->vc_top = 0;
+	fbcon_clear(vc, 0, 0, vc->vc_rows, vc->vc_cols);
+	fb_show_logo(info, ops->rotate);
+	logo_shown = FBCON_LOGO_CANSHOW;
+	return true;
+}
+
 static int fbcon_switch(struct vc_data *vc)
 {
 	struct fb_info *info, *old_info = NULL;
@@ -2173,6 +2200,9 @@ static int fbcon_switch(struct vc_data *vc)
 
 	fbcon_set_palette(vc, color_table); 	
 	fbcon_clear_margins(vc, 0);
+
+	if (fbcon_show_idle_logo(vc, info))
+		return 0;
 
 	if (logo_shown == FBCON_LOGO_DRAW) {
 
