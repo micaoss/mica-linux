@@ -1913,8 +1913,23 @@ static int cfi_intelext_writev (struct mtd_info *mtd, const struct kvec *vecs,
 
 		if (size > len)
 			size = len;
-		ret = do_write_buffer(map, &cfi->chips[chipnum],
-				      ofs, &vecs, &vec_seek, size);
+		/* QEMU's pflash_cfi01 fails a buffer write of one bank word
+		   (word count 0), so such a chunk takes the word program. */
+		if ((ofs & (map_bankwidth(map)-1)) + size <= map_bankwidth(map) &&
+		    vecs->iov_len - vec_seek >= size) {
+			size_t written = 0;
+
+			ret = cfi_intelext_write_words(mtd, (chipnum << cfi->chipshift) + ofs,
+						       size, &written,
+						       vecs->iov_base + vec_seek);
+			vec_seek += size;
+			if (vec_seek == vecs->iov_len) {
+				vecs++;
+				vec_seek = 0;
+			}
+		} else
+			ret = do_write_buffer(map, &cfi->chips[chipnum],
+					      ofs, &vecs, &vec_seek, size);
 		if (ret)
 			return ret;
 
