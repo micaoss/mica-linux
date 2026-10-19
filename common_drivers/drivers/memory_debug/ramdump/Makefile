@@ -2,5 +2,5 @@
 
 $(MODULE_NAME)-$(CONFIG_AMLOGIC_RAMDUMP)	+= ramdump/ram_dump.o
 
-BUILD_TIME := $(shell date +%Y.%m.%d-%H.%M.%S)
+BUILD_TIME := $(shell date -u -d "@$${SOURCE_DATE_EPOCH:-0}" +%Y.%m.%d-%H.%M.%S)
 ccflags-y += "-DBUILD_TIME=\"$(BUILD_TIME)\""
