@@ -65,6 +65,7 @@ obj-y				+= cirrus/
 obj-y				+= freescale/
 obj-$(CONFIG_X86)		+= intel/
 obj-y				+= mediatek/
+obj-y				+= mstar/
 obj-$(CONFIG_PINCTRL_MESON)	+= meson/
 obj-y				+= mvebu/
 obj-y				+= nomadik/
