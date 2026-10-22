@@ -590,6 +590,13 @@ config SPI_MPC52xx_PSC
 	  This enables using the Freescale MPC52xx Programmable Serial
 	  Controller in master SPI mode.
 
+config SPI_MSC313_ISP
+	tristate "MStar MSC313 ISP SPI controller"
+	select REGMAP_MMIO
+	depends on ARCH_MSTARV7 && SPI_MASTER
+	help
+	  Enables MStar MSC313 SPI ISP controller driver.
+
 config SPI_MPC512x_PSC
 	tristate "Freescale MPC512x PSC SPI controller"
 	depends on PPC_MPC512x
