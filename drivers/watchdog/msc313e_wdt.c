@@ -8,6 +8,7 @@
  */
 
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/io.h>
 #include <linux/mod_devicetable.h>
 #include <linux/module.h>
@@ -15,6 +16,7 @@
 #include <linux/watchdog.h>
 
 #define REG_WDT_CLR			0x0
+#define REG_WDT_INT			0xc
 #define REG_WDT_MAX_PRD_L		0x10
 #define REG_WDT_MAX_PRD_H		0x14
 
@@ -30,6 +32,7 @@ struct msc313e_wdt_priv {
 	void __iomem *base;
 	struct watchdog_device wdev;
 	struct clk *clk;
+	unsigned long rate;
 };
 
 static u32 msc313e_wdt_get_hw_timeout(struct msc313e_wdt_priv *priv)
@@ -100,12 +103,29 @@ static const struct watchdog_info msc313e_wdt_ident = {
 	.options = WDIOF_MAGICCLOSE | WDIOF_KEEPALIVEPING | WDIOF_SETTIMEOUT,
 };
 
+static int msc313e_wdt_restart(struct watchdog_device *wdev, unsigned long action, void *data)
+{
+	struct msc313e_wdt_priv *priv = watchdog_get_drvdata(wdev);
+	u32 ticks = priv->rate / 100;
+
+	/* Expire the counter in about 10 ms and let the reset happen. */
+	writew(0, priv->base + REG_WDT_CLR);
+	writew(ticks & 0xffff, priv->base + REG_WDT_MAX_PRD_L);
+	writew((ticks >> 16) & 0xffff, priv->base + REG_WDT_MAX_PRD_H);
+	writew((ticks >> 16) & 0xffff, priv->base + REG_WDT_INT);
+	writew(1, priv->base + REG_WDT_CLR);
+	mdelay(1000);
+
+	return 0;
+}
+
 static const struct watchdog_ops msc313e_wdt_ops = {
 	.owner = THIS_MODULE,
 	.start = msc313e_wdt_start,
 	.stop = msc313e_wdt_stop,
 	.ping = msc313e_wdt_ping,
 	.set_timeout = msc313e_wdt_settimeout,
+	.restart = msc313e_wdt_restart,
 };
 
 static const struct of_device_id msc313e_wdt_of_match[] = {
@@ -129,11 +149,12 @@ static int msc313e_wdt_probe(struct platform_device *pdev)
 	if (IS_ERR(priv->base))
 		return PTR_ERR(priv->base);
 
-	priv->clk = devm_clk_get(dev, NULL);
+	priv->clk = devm_clk_get_enabled(dev, NULL);
 	if (IS_ERR(priv->clk)) {
 		dev_err(dev, "No input clock\n");
 		return PTR_ERR(priv->clk);
 	}
+	priv->rate = clk_get_rate(priv->clk);
 
 	priv->wdev.info = &msc313e_wdt_ident,
 	priv->wdev.ops = &msc313e_wdt_ops,
@@ -148,6 +169,7 @@ static int msc313e_wdt_probe(struct platform_device *pdev)
 	watchdog_set_drvdata(&priv->wdev, priv);
 	platform_set_drvdata(pdev, priv);
 
+	watchdog_set_restart_priority(&priv->wdev, 128);
 	watchdog_init_timeout(&priv->wdev, timeout, dev);
 	watchdog_stop_on_reboot(&priv->wdev);
 	watchdog_stop_on_unregister(&priv->wdev);
