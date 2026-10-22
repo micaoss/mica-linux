@@ -3,19 +3,28 @@
 
 #include <linux/bitops.h>
 #include <linux/kernel.h>
-#include <linux/io.h>
-#include <linux/of.h>
-#include <linux/of_irq.h>
-#include <linux/gpio/driver.h>
-#include <linux/module.h>
-#include <linux/platform_device.h>
-#include <linux/property.h>
 #include <linux/types.h>
+#include <linux/io.h>
+#include <linux/gpio/driver.h>
+#include <linux/irq.h>
+#include <linux/irqdomain.h>
+#include <linux/irqchip.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_irq.h>
+#include <linux/platform_device.h>
+#include <linux/pm.h>
+#include <linux/module.h>
+#include <linux/spinlock.h>
 
 #include <dt-bindings/gpio/msc313-gpio.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
 
 #define DRIVER_NAME "gpio-msc313"
+
+static int msc313_gpio_populate_parent_fwspec(struct gpio_chip*, union gpio_irq_fwspec*, unsigned int, unsigned int);
+static int msc313e_gpio_child_to_parent_hwirq(struct gpio_chip*, unsigned int, unsigned int,
+		unsigned int *, unsigned int*);
 
 #define MSC313_GPIO_IN  BIT(0)
 #define MSC313_GPIO_OUT BIT(4)
@@ -194,13 +203,18 @@ struct msc313_gpio_data {
 	const char * const *names;
 	const unsigned int *offsets;
 	const unsigned int num;
+	int (*populate_parent_fwspec)(struct gpio_chip *, union gpio_irq_fwspec *, unsigned int, unsigned int);
+	int (*child_to_parent_hwirq)(struct gpio_chip*, unsigned int, unsigned int,
+			unsigned int*, unsigned int*);
 };
 
-#define MSC313_GPIO_CHIPDATA(_chip) \
+#define MSC313_GPIO_CHIPDATA(_chip, _populate_parent_fwspec, _child_to_parent_hwirq) \
 static const struct msc313_gpio_data _chip##_data = { \
 	.names = _chip##_names, \
 	.offsets = _chip##_offsets, \
 	.num = ARRAY_SIZE(_chip##_offsets), \
+	.populate_parent_fwspec = _populate_parent_fwspec, \
+	.child_to_parent_hwirq = _child_to_parent_hwirq, \
 }
 
 #ifdef CONFIG_MACH_INFINITY
@@ -220,7 +234,7 @@ static const unsigned int msc313_offsets[] = {
 	SPI0_OFFSETS,
 };
 
-MSC313_GPIO_CHIPDATA(msc313);
+MSC313_GPIO_CHIPDATA(msc313, msc313_gpio_populate_parent_fwspec, msc313e_gpio_child_to_parent_hwirq);
 
 /*
  * Unlike the msc313(e) the ssd20xd have a bunch of pins
@@ -235,6 +249,8 @@ MSC313_GPIO_CHIPDATA(msc313);
 #define SSD20XD_PINNAME_GPIO5		"gpio5"
 #define SSD20XD_PINNAME_GPIO6		"gpio6"
 #define SSD20XD_PINNAME_GPIO7		"gpio7"
+#define SSD20XD_PINNAME_GPIO8		"gpio8"
+#define SSD20XD_PINNAME_GPIO9		"gpio9"
 #define SSD20XD_PINNAME_GPIO10		"gpio10"
 #define SSD20XD_PINNAME_GPIO11		"gpio11"
 #define SSD20XD_PINNAME_GPIO12		"gpio12"
@@ -252,6 +268,8 @@ MSC313_GPIO_CHIPDATA(msc313);
 			   SSD20XD_PINNAME_GPIO5,  \
 			   SSD20XD_PINNAME_GPIO6,  \
 			   SSD20XD_PINNAME_GPIO7,  \
+			   SSD20XD_PINNAME_GPIO8,  \
+			   SSD20XD_PINNAME_GPIO9,  \
 			   SSD20XD_PINNAME_GPIO10, \
 			   SSD20XD_PINNAME_GPIO11, \
 			   SSD20XD_PINNAME_GPIO12, \
@@ -269,6 +287,8 @@ MSC313_GPIO_CHIPDATA(msc313);
 #define SSD20XD_GPIO_OFF_GPIO5 0x14
 #define SSD20XD_GPIO_OFF_GPIO6 0x18
 #define SSD20XD_GPIO_OFF_GPIO7 0x1c
+#define SSD20XD_GPIO_OFF_GPIO8 0x20
+#define SSD20XD_GPIO_OFF_GPIO9 0x24
 #define SSD20XD_GPIO_OFF_GPIO10 0x28
 #define SSD20XD_GPIO_OFF_GPIO11 0x2c
 #define SSD20XD_GPIO_OFF_GPIO12 0x30
@@ -286,6 +306,8 @@ MSC313_GPIO_CHIPDATA(msc313);
 			     SSD20XD_GPIO_OFF_GPIO5,  \
 			     SSD20XD_GPIO_OFF_GPIO6,  \
 			     SSD20XD_GPIO_OFF_GPIO7,  \
+			     SSD20XD_GPIO_OFF_GPIO8,  \
+			     SSD20XD_GPIO_OFF_GPIO9,  \
 			     SSD20XD_GPIO_OFF_GPIO10, \
 			     SSD20XD_GPIO_OFF_GPIO11, \
 			     SSD20XD_GPIO_OFF_GPIO12, \
@@ -477,10 +499,56 @@ static const unsigned int ssd20xd_offsets[] = {
 	SSD20XD_GPIO_OFFSETS,
 };
 
-MSC313_GPIO_CHIPDATA(ssd20xd);
+static int ssd20xd_gpio_child_to_parent_hwirq(struct gpio_chip *, unsigned int,
+					     unsigned int, unsigned int*, unsigned int*);
+MSC313_GPIO_CHIPDATA(ssd20xd, gpiochip_populate_parent_fwspec_twocell, ssd20xd_gpio_child_to_parent_hwirq);
+#endif
+
+#ifdef CONFIG_MACH_MERCURY
+
+#define SR1_GPIO_NAMES			\
+	SSC8336_PINNAME_SR1_GPIO0,	\
+	SSC8336_PINNAME_SR1_GPIO1,	\
+	SSC8336_PINNAME_SR1_GPIO2,	\
+	SSC8336_PINNAME_SR1_GPIO3,	\
+	SSC8336_PINNAME_SR1_GPIO4
+
+#define OFF_SR1_GPIO0	0xb0
+#define OFF_SR1_GPIO1	0xb4
+#define OFF_SR1_GPIO2	0xb8
+#define OFF_SR1_GPIO3	0xbc
+#define OFF_SR1_GPIO4	0xc0
+
+#define SR1_GPIO_OFFSETS	\
+	OFF_SR1_GPIO0,		\
+	OFF_SR1_GPIO1,		\
+	OFF_SR1_GPIO2,		\
+	OFF_SR1_GPIO3,		\
+	OFF_SR1_GPIO4
+
+static const char *ssc8336_names[] = {
+	"unknown0",
+	FUART_NAMES,
+	SR1_GPIO_NAMES,
+	"lcd_de",
+	SPI0_NAMES,
+	SD_NAMES,
+};
+
+static unsigned ssc8336_offsets[] = {
+	0x130, // 70mai lcd rst
+	FUART_OFFSETS,
+	SR1_GPIO_OFFSETS,
+	0x16c, // LCD_DE - mirrorcam stndby?
+	SPI0_OFFSETS,
+	SD_OFFSETS,
+};
+
+MSC313_GPIO_CHIPDATA(ssc8336, msc313_gpio_populate_parent_fwspec, msc313e_gpio_child_to_parent_hwirq);
 #endif
 
 struct msc313_gpio {
+	spinlock_t lock;
 	void __iomem *base;
 	const struct msc313_gpio_data *gpio_data;
 	u8 *saved;
@@ -489,30 +557,51 @@ struct msc313_gpio {
 static void msc313_gpio_set(struct gpio_chip *chip, unsigned int offset, int value)
 {
 	struct msc313_gpio *gpio = gpiochip_get_data(chip);
-	u8 gpioreg = readb_relaxed(gpio->base + gpio->gpio_data->offsets[offset]);
+	unsigned long flags;
+	u8 gpioreg;
 
+	spin_lock_irqsave(&gpio->lock, flags);
+
+	gpioreg = readb_relaxed(gpio->base + gpio->gpio_data->offsets[offset]);
 	if (value)
 		gpioreg |= MSC313_GPIO_OUT;
 	else
 		gpioreg &= ~MSC313_GPIO_OUT;
 
 	writeb_relaxed(gpioreg, gpio->base + gpio->gpio_data->offsets[offset]);
+
+	spin_unlock_irqrestore(&gpio->lock, flags);
 }
 
 static int msc313_gpio_get(struct gpio_chip *chip, unsigned int offset)
 {
 	struct msc313_gpio *gpio = gpiochip_get_data(chip);
+	unsigned long flags;
+	u8 gpioreg;
 
-	return readb_relaxed(gpio->base + gpio->gpio_data->offsets[offset]) & MSC313_GPIO_IN;
+	spin_lock_irqsave(&gpio->lock, flags);
+
+	gpioreg = readb_relaxed(gpio->base + gpio->gpio_data->offsets[offset]);
+
+	spin_unlock_irqrestore(&gpio->lock, flags);
+
+	return gpioreg & MSC313_GPIO_IN;
 }
 
 static int msc313_gpio_direction_input(struct gpio_chip *chip, unsigned int offset)
 {
 	struct msc313_gpio *gpio = gpiochip_get_data(chip);
-	u8 gpioreg = readb_relaxed(gpio->base + gpio->gpio_data->offsets[offset]);
+	unsigned long flags;
+	u8 gpioreg;
 
+	spin_lock_irqsave(&gpio->lock, flags);
+
+	gpioreg = readb_relaxed(gpio->base + gpio->gpio_data->offsets[offset]);
 	gpioreg |= MSC313_GPIO_OEN;
+
 	writeb_relaxed(gpioreg, gpio->base + gpio->gpio_data->offsets[offset]);
+
+	spin_unlock_irqrestore(&gpio->lock, flags);
 
 	return 0;
 }
@@ -520,14 +609,21 @@ static int msc313_gpio_direction_input(struct gpio_chip *chip, unsigned int offs
 static int msc313_gpio_direction_output(struct gpio_chip *chip, unsigned int offset, int value)
 {
 	struct msc313_gpio *gpio = gpiochip_get_data(chip);
-	u8 gpioreg = readb_relaxed(gpio->base + gpio->gpio_data->offsets[offset]);
+	unsigned long flags;
+	u8 gpioreg;
 
+	spin_lock_irqsave(&gpio->lock, flags);
+
+	gpioreg = readb_relaxed(gpio->base + gpio->gpio_data->offsets[offset]);
 	gpioreg &= ~MSC313_GPIO_OEN;
 	if (value)
 		gpioreg |= MSC313_GPIO_OUT;
 	else
 		gpioreg &= ~MSC313_GPIO_OUT;
+
 	writeb_relaxed(gpioreg, gpio->base + gpio->gpio_data->offsets[offset]);
+
+	spin_unlock_irqrestore(&gpio->lock, flags);
 
 	return 0;
 }
@@ -555,6 +651,7 @@ static void msc313_gpio_irq_unmask(struct irq_data *d)
 static const struct irq_chip msc313_gpio_irqchip = {
 	.name = "GPIO",
 	.irq_eoi = irq_chip_eoi_parent,
+	.irq_ack = irq_chip_ack_parent,
 	.irq_mask = msc313_gpio_irq_mask,
 	.irq_unmask = msc313_gpio_irq_unmask,
 	.irq_set_type = irq_chip_set_type_parent,
@@ -607,6 +704,39 @@ static int msc313e_gpio_child_to_parent_hwirq(struct gpio_chip *chip,
 	return -EINVAL;
 }
 
+#ifdef CONFIG_MACH_INFINITY
+static int ssd20xd_gpio_child_to_parent_hwirq(struct gpio_chip *chip,
+					     unsigned int child,
+					     unsigned int child_type,
+					     unsigned int *parent,
+					     unsigned int *parent_type)
+{
+	struct msc313_gpio *priv = gpiochip_get_data(chip);
+	unsigned int offset = priv->gpio_data->offsets[child];
+
+	*parent_type = child_type;
+
+	/*
+	 * On the ssd20xd chips a lot more pins are interrupt enabled but it
+	 * still isn't a linear mapping and not all pins are wired up.
+	 */
+	if (offset >= SSD20XD_TTL_OFFSET_TTL0 && offset <= SSD20XD_TTL_OFFSET_TTL27){
+		*parent = ((offset - SSD20XD_TTL_OFFSET_TTL0) >> 2) + 4;
+		return 0;
+	}
+	else if (offset >= SSD20XD_GPIO_OFF_GPIO0 && offset <= SSD20XD_GPIO_OFF_GPIO14){
+		*parent = ((offset - SSD20XD_GPIO_OFF_GPIO0) >> 2) + 45;
+		return 0;
+	}
+	else if (offset >= OFF_FUART_RX && offset <= OFF_FUART_RTS){
+		*parent = ((offset - OFF_FUART_RX) >> 2) + 60;
+		return 0;
+	}
+
+	return -EINVAL;
+}
+#endif
+
 static int msc313_gpio_probe(struct platform_device *pdev)
 {
 	const struct msc313_gpio_data *match_data;
@@ -632,6 +762,8 @@ static int msc313_gpio_probe(struct platform_device *pdev)
 	gpio = devm_kzalloc(dev, sizeof(*gpio), GFP_KERNEL);
 	if (!gpio)
 		return -ENOMEM;
+
+	spin_lock_init(&gpio->lock);
 
 	gpio->gpio_data = match_data;
 
@@ -663,10 +795,10 @@ static int msc313_gpio_probe(struct platform_device *pdev)
 
 	gpioirqchip = &gpiochip->irq;
 	gpio_irq_chip_set_chip(gpioirqchip, &msc313_gpio_irqchip);
-	gpioirqchip->fwnode = dev_fwnode(dev);
+	gpioirqchip->fwnode = of_node_to_fwnode(dev->of_node);
 	gpioirqchip->parent_domain = parent_domain;
-	gpioirqchip->child_to_parent_hwirq = msc313e_gpio_child_to_parent_hwirq;
-	gpioirqchip->populate_parent_alloc_arg = msc313_gpio_populate_parent_fwspec;
+	gpioirqchip->child_to_parent_hwirq = match_data->child_to_parent_hwirq;
+	gpioirqchip->populate_parent_alloc_arg = match_data->populate_parent_fwspec;
 	gpioirqchip->handler = handle_bad_irq;
 	gpioirqchip->default_type = IRQ_TYPE_NONE;
 
@@ -682,6 +814,12 @@ static const struct of_device_id msc313_gpio_of_match[] = {
 	{
 		.compatible = "sstar,ssd20xd-gpio",
 		.data = &ssd20xd_data,
+	},
+#endif
+#ifdef CONFIG_MACH_MERCURY
+	{
+		.compatible = "mstar,ssc8336-gpio",
+		.data = &ssc8336_data,
 	},
 #endif
 	{ }
