@@ -298,6 +298,9 @@ config MICROSEMI_PHY
 	help
 	  Currently supports VSC8514, VSC8530, VSC8531, VSC8540 and VSC8541 PHYs
 
+config MSC313_PHY
+	tristate "MStar MSC313 phy"
+
 config MOTORCOMM_PHY
 	tristate "Motorcomm PHYs"
 	help
