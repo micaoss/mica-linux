@@ -32,6 +32,7 @@
 
 /* Offsets for the DesignWare specific registers */
 #define DW_UART_USR	0x1f /* UART Status Register */
+#define MSC313_UART_USR	0x7  /* UART Status Register on MSC313 */
 #define DW_UART_DMASA	0xa8 /* DMA Software Ack */
 
 #define OCTEON_UART_USR	0x27 /* UART Status Register */
@@ -56,6 +57,7 @@
 #define DW_UART_QUIRK_IS_DMA_FC		BIT(3)
 #define DW_UART_QUIRK_APMC0D08		BIT(4)
 #define DW_UART_QUIRK_CPR_VALUE		BIT(5)
+#define DW_UART_QUIRK_IS_MSTAR_MSC313	BIT(6)
 
 struct dw8250_platform_data {
 	u8 usr_reg;
@@ -485,6 +487,12 @@ static void dw8250_quirks(struct uart_port *p, struct dw8250_data *data)
 		data->data.dma.prepare_tx_dma = dw8250_prepare_tx_dma;
 		data->data.dma.prepare_rx_dma = dw8250_prepare_rx_dma;
 	}
+	if (quirks & DW_UART_QUIRK_IS_MSTAR_MSC313) {
+		/* dw8250_setup_port() would read the component registers at the wrong place. */
+		data->skip_autocfg = true;
+		/* The FIFO depth of the SSD202D UARTs. */
+		p->fifosize = 32;
+	}
 	if (quirks & DW_UART_QUIRK_APMC0D08) {
 		p->iotype = UPIO_MEM32;
 		p->regshift = 2;
@@ -766,7 +774,13 @@ static const struct dw8250_platform_data dw8250_skip_set_rate_data = {
 	.quirks = DW_UART_QUIRK_SKIP_SET_RATE,
 };
 
+static const struct dw8250_platform_data dw8250_mstar_msc313_data = {
+	.usr_reg = MSC313_UART_USR,
+	.quirks = DW_UART_QUIRK_IS_MSTAR_MSC313,
+};
+
 static const struct of_device_id dw8250_of_match[] = {
+	{ .compatible = "mstar,msc313-uart", .data = &dw8250_mstar_msc313_data },
 	{ .compatible = "snps,dw-apb-uart", .data = &dw8250_dw_apb },
 	{ .compatible = "cavium,octeon-3860-uart", .data = &dw8250_octeon_3860_data },
 	{ .compatible = "marvell,armada-38x-uart", .data = &dw8250_armada_38x_data },
