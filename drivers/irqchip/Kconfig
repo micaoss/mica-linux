@@ -704,6 +704,25 @@ config MST_IRQ
 	help
 	  Support MStar Interrupt Controller.
 
+config SSD20XD_GPI
+	bool "SigmaStar SSD20xD GPIO Interrupt Controller"
+	depends on ARCH_MSTARV7 || COMPILE_TEST
+	default ARCH_MSTARV7
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_HIERARCHY
+	select REGMAP
+	help
+	  Support for the SigmaStar GPIO interrupt controller
+	  found in SSD201, SSD202D and others.
+
+config MSC313_PM_INTC
+	bool "MStar MSC313 PM Interrupt Controller"
+	depends on ARCH_MSTARV7 || COMPILE_TEST
+	select IRQ_DOMAIN
+	select IRQ_DOMAIN_HIERARCHY
+	help
+	  Support for the MStar/SigmaStar PM domain Interrupt Controller.
+
 config WPCM450_AIC
 	bool "Nuvoton WPCM450 Advanced Interrupt Controller"
 	depends on ARCH_WPCM450
