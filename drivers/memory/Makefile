@@ -39,3 +39,4 @@ $(obj)/ti-emif-asm-offsets.h: $(obj)/emif-asm-offsets.s FORCE
 
 targets += emif-asm-offsets.s
 clean-files += ti-emif-asm-offsets.h
+obj-$(CONFIG_ARCH_MSTARV7)	+= mstar-msc313_miu.o
