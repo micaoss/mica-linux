@@ -11,6 +11,10 @@ on:
       date:
         description: Snapshot date YYYYMMDD (default today, UTC; another date when today's snapshot exists)
         required: false
+      push:
+        description: Push the result (false prints what would be pushed)
+        type: boolean
+        default: true
 permissions:
   contents: read
 concurrency:
@@ -32,7 +36,7 @@ jobs:
       - name: Sync
         env:
           SYNC_DATE: ${{ inputs.date }}
-          SYNC_PUSH: '1'
+          SYNC_PUSH: ${{ (github.event_name == 'schedule' || inputs.push) && '1' || '0' }}
         run: |
           set -euo pipefail
           [ -n "${SYNC_DATE}" ] || unset SYNC_DATE
