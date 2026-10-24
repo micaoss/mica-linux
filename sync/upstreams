@@ -1,0 +1,7 @@
+# Upstream mirrors: <mirror branch> <upstream URL> <upstream branch> [<required kernel series>]
+# tools/sync.sh fast-forwards each mirror to its upstream branch head; a head that is not a
+# descendant of the mirror stops the sync. A series (VERSION.PATCHLEVEL of the top Makefile)
+# keeps the mirror inside one stable line: moving to the next series is a person's decision.
+stable/linux-6.12.y          https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git  linux-6.12.y      6.12
+rockchip/rk-6.1-rkr5.1       https://github.com/armbian/linux-rockchip.git                    rk-6.1-rkr5.1
+hardkernel/odroids7d-6.12.y  https://github.com/hardkernel/linux.git                          odroids7d-6.12.y

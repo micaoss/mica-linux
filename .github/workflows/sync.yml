@@ -1,0 +1,60 @@
+name: sync
+# Weekly, and on demand: tools/sync.sh fast-forwards the upstream mirrors, rebases the board
+# branches, cuts the dated snapshots and moves the heads, all in one atomic push. A failure
+# (a rebase conflict, an upstream that rewrote its history, a stable head outside the pinned
+# series) pushes nothing and opens an issue, or comments on the one already open.
+on:
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+    inputs:
+      date:
+        description: Snapshot date YYYYMMDD (default today, UTC; another date when today's snapshot exists)
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: sync
+  cancel-in-progress: false
+jobs:
+  sync:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 120
+    permissions:
+      contents: write
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+          filter: blob:none
+      - name: Sync
+        env:
+          SYNC_DATE: ${{ inputs.date }}
+          SYNC_PUSH: '1'
+        run: |
+          set -euo pipefail
+          [ -n "${SYNC_DATE}" ] || unset SYNC_DATE
+          bash tools/sync.sh 2>&1 | grep --line-buffered -v '^Updating files' | tee "$RUNNER_TEMP/sync.log"
+      - name: Open an issue
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          { echo "The sync stopped and pushed nothing: $RUN_URL"
+            echo
+            echo '```'
+            tail -n 40 "$RUNNER_TEMP/sync.log" 2>/dev/null || echo "(no log)"
+            echo '```'
+            echo
+            echo "Fix it by hand as README \"Sync\" describes, then run the workflow again."
+          } > "$RUNNER_TEMP/body.md"
+          open=$(gh issue list --state open --search 'in:title "sync failed"' --json number --jq '.[0].number // empty')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh issue create --title "sync failed" --body-file "$RUNNER_TEMP/body.md"
+          fi
