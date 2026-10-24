@@ -1,64 +1,61 @@
 name: sync
-# Weekly, and on demand: tools/sync.sh fast-forwards the upstream mirrors, rebases the board
-# branches, cuts the dated snapshots and moves the heads, all in one atomic push. A failure
-# (a rebase conflict, an upstream that rewrote its history, a stable head outside the pinned
-# series) pushes nothing and opens an issue, or comments on the one already open.
+
+# Weekly: fast-forward the mirrors and cut dated snapshots of the boards whose mirror moved (README.md, "Sync").
+# A row that needs a human (an upstream that is not a fast-forward, a conflict, a snapshot name already taken)
+# pushes nothing, opens an issue and fails the run; the other rows still go through.
 on:
   schedule:
-    - cron: '17 5 * * 1'
+    - cron: "17 3 * * 1"
   workflow_dispatch:
     inputs:
-      date:
-        description: Snapshot date YYYYMMDD (default today, UTC; another date when today's snapshot exists)
-        required: false
-      push:
-        description: Push the result (false prints what would be pushed)
+      dry_run:
+        description: Report what would be pushed, push nothing
         type: boolean
-        default: true
+        default: false
+
 permissions:
-  contents: read
+  contents: write
+  issues: write
+
 concurrency:
   group: sync
   cancel-in-progress: false
+
 jobs:
   sync:
-    runs-on: ubuntu-26.04
+    runs-on: ubuntu-latest
     timeout-minutes: 120
-    permissions:
-      contents: write
-      issues: write
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           ref: main
+          # The kernel history is 4 GiB: every commit and tree, blobs on demand.
           fetch-depth: 0
           filter: blob:none
       - name: Sync
+        id: sync
         env:
-          SYNC_DATE: ${{ inputs.date }}
-          SYNC_PUSH: ${{ (github.event_name == 'schedule' || inputs.push) && '1' || '0' }}
+          DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
         run: |
-          set -euo pipefail
-          [ -n "${SYNC_DATE}" ] || unset SYNC_DATE
-          bash tools/sync.sh 2>&1 | grep --line-buffered -v '^Updating files' | tee "$RUNNER_TEMP/sync.log"
-      - name: Open an issue
+          git config user.name "mica-linux sync"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          now="$(date -u +%Y%m%d-%H%M)"
+          echo "date=${now%-*}" >> "$GITHUB_OUTPUT"
+          SYNC_DATE="${now%-*}" SYNC_TIME="${now#*-}" SYNC_REPORT="$RUNNER_TEMP/sync-report.txt" bash scripts/sync.sh $DRY_RUN
+      - name: Open an issue for the rows that need a human
         if: failure()
         env:
           GH_TOKEN: ${{ github.token }}
+          TITLE: "sync ${{ steps.sync.outputs.date }}: rows need a human"
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          set -euo pipefail
-          { echo "The sync stopped and pushed nothing: $RUN_URL"
-            echo
-            echo '```'
-            tail -n 40 "$RUNNER_TEMP/sync.log" 2>/dev/null || echo "(no log)"
-            echo '```'
-            echo
-            echo "Fix it by hand as README \"Sync\" describes, then run the workflow again."
-          } > "$RUNNER_TEMP/body.md"
-          open=$(gh issue list --state open --search 'in:title "sync failed"' --json number --jq '.[0].number // empty')
-          if [ -n "$open" ]; then
-            gh issue comment "$open" --body-file "$RUNNER_TEMP/body.md"
+          report="$RUNNER_TEMP/sync-report.txt"
+          [ -s "$report" ] || exit 0
+          body="$(printf 'Run: %s\n\n```\n%s\n```\n\nSee README.md, "Conflicts".\n' "$RUN_URL" "$(cat "$report")")"
+          number="$(gh issue list --state open --search "\"$TITLE\" in:title" --json number,title \
+            --jq "map(select(.title == env.TITLE)) | .[0].number // empty")"
+          if [ -n "$number" ]; then
+            gh issue comment "$number" --body "$body"
           else
-            gh issue create --title "sync failed" --body-file "$RUNNER_TEMP/body.md"
+            gh issue create --title "$TITLE" --body "$body"
           fi

@@ -1,8 +1,0 @@
-# Board branches: <board> <base mirror branch> <flatten>
-# mica/<board> is the base plus the board's commits. tools/sync.sh replays those commits onto the
-# synced base and cuts mica/<board>-<date>. flatten=yes: the base's submodules are vendored into
-# the tree by one commit (trailer Mica-Flatten: <base>) before the board's commits, because those
-# commits change files inside the submodules. A board whose mica/<board> does not exist yet is skipped.
-cx3576   rockchip/rk-6.1-rkr5.1       no
-s905x5m  hardkernel/odroids7d-6.12.y  yes
-ssd202d  stable/linux-6.12.y          no
