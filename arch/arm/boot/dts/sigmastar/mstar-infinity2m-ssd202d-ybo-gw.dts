@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * SSD202D gateway: 128 MiB SPI NAND, Ethernet, a polled user key, two LEDs and a Silicon Labs EFR32MG21 radio
- * module (Tuya ZS3L) on the fuart. Compiled inside the kernel build against the SoC device trees of
- * patches/ (the fork's mstar-infinity2m-ssd202d.dtsi chain).
+ * module (Tuya ZS3L) on the fuart. Compiled against the SoC device trees carried from linux-chenxing (the
+ * fork's mstar-infinity2m-ssd202d.dtsi chain).
  */
 
 /dts-v1/;
@@ -125,6 +125,22 @@
 };
 
 /*
- * The module's control lines are driven from userspace: vendor GPIO47 (UART0_RX pad) is its reset, vendor
- * GPIO48 (UART0_TX pad) selects the bootloader when low as the reset is released.
+ * The module's control lines: vendor GPIO47 (UART0_RX pad) is its reset, active low; vendor GPIO48 (UART0_TX
+ * pad) selects its bootloader when low as the reset is released. Both are held high, the module running its
+ * application, until a userspace helper takes them over.
  */
+&gpio {
+	radio-reset-hog {
+		gpio-hog;
+		gpios = <SSD20XD_GPIO_UART0_RX GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "radio-reset";
+	};
+
+	radio-boot-select-hog {
+		gpio-hog;
+		gpios = <SSD20XD_GPIO_UART0_TX GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "radio-boot-select";
+	};
+};
