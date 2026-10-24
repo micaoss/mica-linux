@@ -90,15 +90,15 @@
 				read-only;
 			};
 
-			/* The SPL in both IPL_CUST slots, U-Boot proper A and B. */
+			/* The SPL in the first IPL_CUST slot (the second is left erased), U-Boot proper. */
 			partition@200000 {
 				label = "loader";
-				reg = <0x200000 0x280000>;
+				reg = <0x200000 0x180000>;
 			};
 
-			partition@480000 {
+			partition@380000 {
 				label = "ubi";
-				reg = <0x480000 0x7b80000>;
+				reg = <0x380000 0x7c80000>;
 			};
 		};
 	};
