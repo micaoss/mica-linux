@@ -28,6 +28,11 @@ static unsigned int timeout;
 module_param(timeout, int, 0);
 MODULE_PARM_DESC(timeout, "Watchdog timeout in seconds");
 
+static bool nowayout = WATCHDOG_NOWAYOUT;
+module_param(nowayout, bool, 0);
+MODULE_PARM_DESC(nowayout, "Watchdog cannot be stopped once started (default="
+		 __MODULE_STRING(WATCHDOG_NOWAYOUT) ")");
+
 struct msc313e_wdt_priv {
 	void __iomem *base;
 	struct watchdog_device wdev;
@@ -170,6 +175,7 @@ static int msc313e_wdt_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, priv);
 
 	watchdog_set_restart_priority(&priv->wdev, 128);
+	watchdog_set_nowayout(&priv->wdev, nowayout);
 	watchdog_init_timeout(&priv->wdev, timeout, dev);
 	watchdog_stop_on_reboot(&priv->wdev);
 	watchdog_stop_on_unregister(&priv->wdev);
