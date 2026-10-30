@@ -553,6 +553,8 @@ void drm_sched_entity_select_rq(struct drm_sched_entity *entity)
 
 	if (entity->num_sched_list == 1)
 		entity->sched_list = NULL;
+
+	spin_unlock(&entity->rq_lock);
 }
 
 /**

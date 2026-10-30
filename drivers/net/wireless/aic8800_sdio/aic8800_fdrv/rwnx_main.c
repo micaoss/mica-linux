@@ -5513,6 +5513,8 @@ rwnx_cfg80211_tdls_mgmt(struct wiphy *wiphy,
 #else
 	u8 *peer,
 #endif
+	/* the 6.1 stable line carries the link_id argument (cfg80211 tdls_mgmt) */
+	int link_id,
 	u8 action_code,
 	u8 dialog_token,
 	u16 status_code,

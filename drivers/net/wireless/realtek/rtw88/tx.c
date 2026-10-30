@@ -169,7 +169,7 @@ void rtw_tx_report_purge_timer(struct timer_list *t)
 	rtw_warn(rtwdev, "failed to get tx report from firmware\n");
 
 	spin_lock_irqsave(&tx_report->q_lock, flags);
-	skb_queue_purge(&tx_report->queue);
+	ieee80211_purge_tx_queue(rtwdev->hw, &tx_report->queue);
 	spin_unlock_irqrestore(&tx_report->q_lock, flags);
 }
 
@@ -590,6 +590,7 @@ static int rtw_txq_push_skb(struct rtw_dev *rtwdev,
 	ret = rtw_hci_tx_write(rtwdev, &pkt_info, skb);
 	if (ret) {
 		rtw_err(rtwdev, "failed to write TX skb to HCI\n");
+		ieee80211_free_txskb(rtwdev->hw, skb);
 		return ret;
 	}
 	rtwtxq->last_push = jiffies;

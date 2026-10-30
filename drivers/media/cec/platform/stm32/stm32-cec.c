@@ -133,7 +133,8 @@ static void stm32_rx_done(struct stm32_cec *cec, u32 status)
 		u32 val;
 
 		regmap_read(cec->regmap, CEC_RXDR, &val);
-		cec->rx_msg.msg[cec->rx_msg.len++] = val & 0xFF;
+		if (cec->rx_msg.len < CEC_MAX_MSG_SIZE)
+			cec->rx_msg.msg[cec->rx_msg.len++] = val & 0xFF;
 	}
 
 	if (cec->irq_status & RXEND) {
@@ -288,12 +289,9 @@ static int stm32_cec_probe(struct platform_device *pdev)
 		return ret;
 
 	cec->clk_cec = devm_clk_get(&pdev->dev, "cec");
-	if (IS_ERR(cec->clk_cec)) {
-		if (PTR_ERR(cec->clk_cec) != -EPROBE_DEFER)
-			dev_err(&pdev->dev, "Cannot get cec clock\n");
-
-		return PTR_ERR(cec->clk_cec);
-	}
+	if (IS_ERR(cec->clk_cec))
+		return dev_err_probe(&pdev->dev, PTR_ERR(cec->clk_cec),
+				     "Cannot get cec clock\n");
 
 	ret = clk_prepare(cec->clk_cec);
 	if (ret) {

@@ -48,15 +48,10 @@ mlx5_esw_bridge_lag_rep_get(struct net_device *dev, struct mlx5_eswitch *esw)
 	struct list_head *iter;
 
 	netdev_for_each_lower_dev(dev, lower, iter) {
-		struct mlx5_core_dev *mdev;
-		struct mlx5e_priv *priv;
-
 		if (!mlx5e_eswitch_rep(lower))
 			continue;
 
-		priv = netdev_priv(lower);
-		mdev = priv->mdev;
-		if (mlx5_lag_is_shared_fdb(mdev) && mlx5_esw_bridge_dev_same_esw(lower, esw))
+		if (mlx5_esw_bridge_dev_same_esw(lower, esw))
 			return lower;
 	}
 
@@ -121,7 +116,7 @@ static bool mlx5_esw_bridge_is_local(struct net_device *dev, struct net_device *
 	priv = netdev_priv(rep);
 	mdev = priv->mdev;
 	if (netif_is_lag_master(dev))
-		return mlx5_lag_is_shared_fdb(mdev) && mlx5_lag_is_master(mdev);
+		return mlx5_lag_is_master(mdev);
 	return true;
 }
 
@@ -136,7 +131,6 @@ static int mlx5_esw_bridge_port_changeupper(struct notifier_block *nb, void *ptr
 	struct mlx5_eswitch *esw = br_offloads->esw;
 	u16 vport_num, esw_owner_vhca_id;
 	struct netlink_ext_ack *extack;
-	int ifindex = upper->ifindex;
 	int err = 0;
 
 	if (!netif_is_bridge_master(upper))
@@ -150,15 +144,15 @@ static int mlx5_esw_bridge_port_changeupper(struct notifier_block *nb, void *ptr
 
 	if (mlx5_esw_bridge_is_local(dev, rep, esw))
 		err = info->linking ?
-			mlx5_esw_bridge_vport_link(ifindex, vport_num, esw_owner_vhca_id,
+			mlx5_esw_bridge_vport_link(upper, vport_num, esw_owner_vhca_id,
 						   br_offloads, extack) :
-			mlx5_esw_bridge_vport_unlink(ifindex, vport_num, esw_owner_vhca_id,
+			mlx5_esw_bridge_vport_unlink(upper, vport_num, esw_owner_vhca_id,
 						     br_offloads, extack);
 	else if (mlx5_esw_bridge_dev_same_hw(rep, esw))
 		err = info->linking ?
-			mlx5_esw_bridge_vport_peer_link(ifindex, vport_num, esw_owner_vhca_id,
+			mlx5_esw_bridge_vport_peer_link(upper, vport_num, esw_owner_vhca_id,
 							br_offloads, extack) :
-			mlx5_esw_bridge_vport_peer_unlink(ifindex, vport_num, esw_owner_vhca_id,
+			mlx5_esw_bridge_vport_peer_unlink(upper, vport_num, esw_owner_vhca_id,
 							  br_offloads, extack);
 
 	return err;
@@ -434,6 +428,9 @@ static int mlx5_esw_bridge_switchdev_event(struct notifier_block *nb,
 
 	rep = mlx5_esw_bridge_rep_vport_num_vhca_id_get(dev, esw, &vport_num, &esw_owner_vhca_id);
 	if (!rep)
+		return NOTIFY_DONE;
+
+	if (netif_is_lag_master(dev) && !mlx5_lag_is_shared_fdb(esw->dev))
 		return NOTIFY_DONE;
 
 	switch (event) {

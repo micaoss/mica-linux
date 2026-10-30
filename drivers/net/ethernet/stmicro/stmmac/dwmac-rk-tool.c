@@ -628,8 +628,7 @@ static int dwmac_rk_get_desc_status(struct stmmac_priv *priv,
 	int tx_status, rx_status;
 
 	txp = lb_priv->dma_tx;
-	tx_status = priv->hw->desc->tx_status(&priv->dev->stats,
-					      &priv->xstats, txp,
+	tx_status = priv->hw->desc->tx_status(&priv->xstats, txp,
 					      priv->ioaddr);
 	/* Check if the descriptor is owned by the DMA */
 	if (unlikely(tx_status & tx_dma_own))
@@ -637,8 +636,7 @@ static int dwmac_rk_get_desc_status(struct stmmac_priv *priv,
 
 	rxp = lb_priv->dma_rx;
 	/* read the status of the incoming frame */
-	rx_status = priv->hw->desc->rx_status(&priv->dev->stats,
-					      &priv->xstats, rxp);
+	rx_status = priv->hw->desc->rx_status(&priv->xstats, rxp);
 	if (unlikely(rx_status & dma_own))
 		return -EBUSY;
 
