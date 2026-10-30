@@ -13,6 +13,7 @@ fast-forwarded.
 | Branch | Upstream | Follows | First mirrored at |
 | --- | --- | --- | --- |
 | `stable/linux-6.12.y` | https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git | point releases `v6.12.<n>` (tags pushed with it) | v6.12.111 `e2acc2211022246c77740d5df08265cc27eedcc5` |
+| `stable/linux-6.1.y` | https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git | point releases `v6.1.<n>` (tags pushed with it) | v6.1.190 `79807e970724c1f90cee1316361d61b80db4eef6` |
 | `rockchip/rk-6.1-rkr5.1` | https://github.com/armbian/linux-rockchip.git | branch `rk-6.1-rkr5.1` | `372ce582b94a3360a29727c3c49c88bb7509da22` |
 | `hardkernel/odroids7d-6.12.y` | https://github.com/hardkernel/linux.git | branch `odroids7d-6.12.y` | `9ea2aa831a585955dcb0e38a0bc3c63d2c690adc` |
 
@@ -23,8 +24,8 @@ fast-forwarded.
 | `mica/general` | `stable/linux-6.12.y` as is | mini-x64, uefi-x64, uefi-arm64 |
 | `mica/qemu-armhf` | `stable/linux-6.12.y` + the board's commits | qemu-armhf |
 | `mica/ssd202d` | `stable/linux-6.12.y` + the board's commits | ssd202d |
-| `mica/cx3576` | `rockchip/rk-6.1-rkr5.1` + the board's commits | cx3576 |
-| `mica/s905x5m` | `hardkernel/odroids7d-6.12.y` + one commit vendoring its submodules + the board's commits | s905x5m |
+| `mica/cx3576` | `rockchip/rk-6.1-rkr5.1` + the board's commits + a merge of `stable/linux-6.1.y` | cx3576 |
+| `mica/s905x5m` | `hardkernel/odroids7d-6.12.y` + one commit vendoring its submodules + the board's commits + a merge of `stable/linux-6.12.y` | s905x5m |
 
 - `mica/<board>-<YYYYMMDD>` (UTC), or `mica/<board>-<YYYYMMDD>-<HHMM>` for a second cut the same day, is a
   snapshot: only ever created, never rewritten or deleted. A build pins a snapshot, never a head or a mirror.
@@ -48,7 +49,8 @@ fast-forwards the mirror branch; a `release:<tag>` row follows only the point re
 based on its mirror's head gets its commits (merge base to `mica/<board>`) cherry-picked onto that head, in order;
 a `flatten` board first gets a new vendoring commit at that head, in place of its old one. The result is pushed as
 `mica/<board>-<date>` (`mica/<board>-<date>-<HHMM>` when that day already has one) and `mica/<board>` moves to it.
-A commit the new upstream already carries applies as nothing and is dropped.
+A commit the new upstream already carries applies as nothing and is dropped. A board row marked `stable:<mirror>`
+(see "Stable merges") is never rebased: the run only reports whether a merge round is due.
 
 The rules: a mirror is only ever fast-forwarded; a snapshot is only ever created; `mica/<board>` is the one ref that
 moves to a rebased tree, and only with a lease on the value the run read. mica-build's `locks update` picks the
@@ -69,6 +71,26 @@ To resolve a conflict, rebase the board's commits onto the mirror head by hand (
 commit at that head, `flatten` in `scripts/sync.sh`), and push the result as a new snapshot and the moving head, as
 in "Making a change". For a rewritten upstream, decide whether to follow it; a mirror is never force-pushed, so
 following it means a new mirror branch and new board rows.
+
+## Stable merges
+
+The vendor trees of cx3576 and s905x5m stop at an old point release of their stable line (rockchip at v6.1.115,
+Hardkernel's Android common kernel at v6.12.38). Their heads carry the newer stable point
+releases as a merge commit: first parent the board line, second parent the stable tag
+(`Merge tag 'v6.1.190' into mica/cx3576`). Conflicts are resolved keeping the vendor's behaviour, and the
+commit message lists every conflicted file and how it was resolved, including stable changes left out.
+
+A line with a merge cannot be replayed commit by commit, so its row is marked `stable:<mirror>` and the weekly run
+does not touch it. It reports instead:
+
+- the vendor mirror moved past the head: a row that needs a human (the run fails, as for a conflict);
+- the stable mirror has a point release not merged yet: an info line in the run log, nothing pushed.
+
+Both are a manual round, made as in "Making a change": from `mica/<board>`, merge the new stable tag (or the moved
+vendor mirror) with `git merge --no-ff`, resolve, build and test the board, then push a new snapshot and
+fast-forward the head. A merge keeps the old snapshot as its first parent, so the head only ever fast-forwards and
+nothing is rebased. Taking a new vendor branch altogether (a rebase of the board commits) drops the old merge:
+the board's commits go onto the new base as in "Conflicts", and the stable merge is redone on top.
 
 ## Making a change
 

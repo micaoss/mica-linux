@@ -4,15 +4,17 @@
 #     follow branch:<name>   fast-forward to the upstream branch head
 #     follow release:<tag>   fast-forward to the newest point release <tag>.<n> (or <tag> itself); a new release
 #                            line (the next <tag>) is a human decision: a new mirror row
-#   board   <name>  <mirror branch>  [flatten]
+#   board   <name>  <mirror branch>  [<options>, space-separated]
 #     mica/<name> carries the board's commits on top of that mirror; general carries none. flatten: the mirror's
 #     submodules are vendored into the tree by one commit (trailer Mica-Flatten: <base>) under the board's commits,
-#     which change files inside them
+#     which change files inside them. stable:<mirror branch>: the line carries a merge of that stable mirror
+#     (README.md, "Stable merges"); the run never replays it, it only reports when a vendor or stable merge round is due
 mirror	stable/linux-6.12.y	https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git	release:v6.12
+mirror	stable/linux-6.1.y	https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git	release:v6.1
 mirror	rockchip/rk-6.1-rkr5.1	https://github.com/armbian/linux-rockchip.git	branch:rk-6.1-rkr5.1
 mirror	hardkernel/odroids7d-6.12.y	https://github.com/hardkernel/linux.git	branch:odroids7d-6.12.y
 board	general	stable/linux-6.12.y
 board	qemu-armhf	stable/linux-6.12.y
 board	ssd202d	stable/linux-6.12.y
-board	cx3576	rockchip/rk-6.1-rkr5.1
-board	s905x5m	hardkernel/odroids7d-6.12.y	flatten
+board	cx3576	rockchip/rk-6.1-rkr5.1	stable:stable/linux-6.1.y
+board	s905x5m	hardkernel/odroids7d-6.12.y	flatten stable:stable/linux-6.12.y

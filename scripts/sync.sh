@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # The weekly sync (README.md, "Sync"): fast-forward every mirror branch to its upstream, then cut a dated snapshot
 # of every board whose mirror moved, its commits cherry-picked onto the new mirror head. A board row marked
-# flatten gets a fresh commit vendoring the mirror's submodules first (sync.tsv).
+# flatten gets a fresh commit vendoring the mirror's submodules first; a row marked stable:<mirror> carries a
+# stable merge and is only checked, never replayed (sync.tsv).
 #
 #   scripts/sync.sh [--dry-run]
 #
@@ -109,7 +110,15 @@ while IFS=$'\t' read -r _ branch url follow; do
     MIRROR[$branch]="$new"
 done < <(rows mirror)
 
-while IFS=$'\t' read -r _ board mirror flat; do
+while IFS=$'\t' read -r _ board mirror opts; do
+    flat=""; stable=""
+    for o in $opts; do
+        case "$o" in
+        flatten) flat=flatten ;;
+        stable:*) stable="${o#stable:}" ;;
+        *) need_human "board ${board}: unknown option ${o}"; continue 2 ;;
+        esac
+    done
     head="mica/${board}"
     snapshot="mica/${board}-${DATE}"
     target="${MIRROR[$mirror]:-}"
@@ -117,6 +126,20 @@ while IFS=$'\t' read -r _ board mirror flat; do
     current="$(remote_ref "$head")"
     [ -n "$current" ] || { echo "board ${board}: no ${head} yet, skipped"; continue; }
     git fetch --quiet --no-tags origin "+refs/heads/${head}:refs/sync/head/${board}"
+    # A line that carries a stable merge is never replayed: its history has merges, and a vendor or stable
+    # update is a merge round by hand (README.md, "Stable merges"). The run only says when one is due.
+    if [ -n "$stable" ]; then
+        starget="${MIRROR[$stable]:-}"
+        [ -n "$starget" ] || { need_human "board ${board}: no mirror row ${stable}"; continue; }
+        if ! git merge-base --is-ancestor "$target" "refs/sync/head/${board}"; then
+            need_human "board ${board}: ${mirror} moved to ${target}; ${head} carries a stable merge, so the vendor update is a merge round by hand"
+        elif ! git merge-base --is-ancestor "$starget" "refs/sync/head/${board}"; then
+            echo "board ${board}: ${stable} is at $(git describe --tags --abbrev=0 "$starget" 2>/dev/null || echo "$starget"), not merged into ${head}; the next stable merge round is due"
+        else
+            echo "board ${board}: ${head} is on ${mirror} ${target} and ${stable} ${starget}"
+        fi
+        continue
+    fi
     # Based on the mirror head already: nothing to do. Otherwise this also catches up a board a previous run left
     # behind on a conflict, since the mirror it follows has moved on without it.
     if git merge-base --is-ancestor "$target" "refs/sync/head/${board}"; then
