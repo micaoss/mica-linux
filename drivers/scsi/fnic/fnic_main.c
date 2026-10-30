@@ -580,6 +580,8 @@ static int fnic_scsi_drv_init(struct fnic *fnic)
 
 void fnic_mq_map_queues_cpus(struct Scsi_Host *host)
 {
+	const struct cpumask *mask;
+	unsigned int queue, cpu;
 	struct fc_lport *lp = shost_priv(host);
 	struct fnic *fnic = lport_priv(lp);
 	struct pci_dev *l_pdev = fnic->pdev;

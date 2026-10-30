@@ -359,6 +359,9 @@ void pci_bus_add_device(struct pci_dev *dev)
 				pdev->name);
 	}
 
+	/* Save config space for error recoverability */
+	pci_save_state(dev);
+
 	dev->match_driver = !dn || of_device_is_available(dn);
 	retval = device_attach(&dev->dev);
 	if (retval < 0 && retval != -EPROBE_DEFER)

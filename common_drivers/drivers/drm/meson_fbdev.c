@@ -895,9 +895,8 @@ static int am_meson_drm_fbdev_probe(struct drm_fb_helper *helper,
 	struct drm_mode_fb_cmd2 mode_cmd = { 0 };
 	struct drm_fb_helper_surface_size sizes;
 	struct drm_framebuffer *fb;
-	struct fb_info *fbi;
+	struct fb_info *fbi = helper->info;
 	unsigned int bytes_per_pixel;
-	int ret;
 
 	if (private->ui_config.overlay_flag == 1) {
 		sizes.fb_width = private->ui_config.overlay_ui_w;
@@ -929,19 +928,11 @@ static int am_meson_drm_fbdev_probe(struct drm_fb_helper *helper,
 		DRM_FORMAT_ARGB8888, DRM_FORMAT_ABGR8888,
 		mode_cmd.pitches[0], fbdev->fb_gem);
 
-	fbi = drm_fb_helper_alloc_info(helper);
-	if (IS_ERR(fbi)) {
-		DRM_ERROR("Failed to create framebuffer info.\n");
-		ret = PTR_ERR(fbi);
-		return ret;
-	}
-
 	helper->fb = am_meson_drm_framebuffer_init(dev, &mode_cmd,
 						   fbdev->fb_gem);
 	if (IS_ERR(helper->fb)) {
 		dev_err(dev->dev, "Failed to allocate DRM framebuffer.\n");
-		ret = PTR_ERR(helper->fb);
-		goto err_release_fbi;
+		return PTR_ERR(helper->fb);
 	}
 	fb = helper->fb;
 
@@ -959,10 +950,6 @@ static int am_meson_drm_fbdev_probe(struct drm_fb_helper *helper,
 		fbi->var.xres_virtual, fbi->var.yres_virtual,
 		fbi->var.bits_per_pixel, fbi->screen_size);
 	return 0;
-
-err_release_fbi:
-	drm_fb_helper_fini(helper);
-	return ret;
 }
 
 static const struct drm_fb_helper_funcs meson_drm_fb_helper_funcs = {

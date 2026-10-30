@@ -55,11 +55,6 @@ void cfg80211_chandef_create(struct cfg80211_chan_def *chandef,
 }
 EXPORT_SYMBOL(cfg80211_chandef_create);
 
-static int cfg80211_chandef_get_width(const struct cfg80211_chan_def *c)
-{
-	return nl80211_chan_width_to_mhz(c->width);
-}
-
 static u32 cfg80211_get_start_freq(const struct cfg80211_chan_def *chandef,
 				   u32 cf)
 {
@@ -983,10 +978,10 @@ bool cfg80211_any_wiphy_oper_chan(struct wiphy *wiphy,
 		if (!reg_dfs_domain_same(wiphy, &rdev->wiphy))
 			continue;
 
-		wiphy_lock(&rdev->wiphy);
+		guard(wiphy)(&rdev->wiphy);
+
 		found = cfg80211_is_wiphy_oper_chan(&rdev->wiphy, chan) ||
 			cfg80211_offchan_chain_is_active(rdev, chan);
-		wiphy_unlock(&rdev->wiphy);
 
 		if (found)
 			return true;

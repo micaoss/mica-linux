@@ -64,3 +64,4 @@ const size_t RUST_CONST_HELPER_ASHMEM_FULL_NAME_LEN = ASHMEM_FULL_NAME_LEN;
 #include "../../drivers/android/binder/rust_binder_hooks.h"
 #include "../../drivers/android/binder/rust_binder_events.h"
 #endif
+const vm_flags_t RUST_CONST_HELPER_VM_MERGEABLE = VM_MERGEABLE;
