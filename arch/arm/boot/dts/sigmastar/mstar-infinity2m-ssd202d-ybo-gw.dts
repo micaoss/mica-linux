@@ -125,22 +125,12 @@
 };
 
 /*
- * The module's control lines: vendor GPIO47 (UART0_RX pad) is its reset, active low; vendor GPIO48 (UART0_TX
- * pad) selects its bootloader when low as the reset is released. Both are held high, the module running its
- * application, until a userspace helper takes them over.
+ * The module's control lines: vendor GPIO47 (UART0_RX pad, line 10) is its reset, active low; vendor GPIO48
+ * (UART0_TX pad, line 11) selects its bootloader when low as the reset is released. They are left to userspace,
+ * so nothing claims them here. The pin controller has no pull settings for these pads, so until userspace drives
+ * them they are undriven inputs and the module's own pulls decide.
  */
 &gpio {
-	radio-reset-hog {
-		gpio-hog;
-		gpios = <SSD20XD_GPIO_UART0_RX GPIO_ACTIVE_HIGH>;
-		output-high;
-		line-name = "radio-reset";
-	};
-
-	radio-boot-select-hog {
-		gpio-hog;
-		gpios = <SSD20XD_GPIO_UART0_TX GPIO_ACTIVE_HIGH>;
-		output-high;
-		line-name = "radio-boot-select";
-	};
+	gpio-line-names = "", "", "", "", "", "", "", "", "", "",
+			  "radio-reset", "radio-boot-select";
 };
