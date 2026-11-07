@@ -24,6 +24,9 @@ static struct key *secondary_trusted_keys;
 #ifdef CONFIG_INTEGRITY_MACHINE_KEYRING
 static struct key *machine_trusted_keys;
 #endif
+#ifdef CONFIG_MICA_OWNER_KEYRING
+static struct key *mica_owner_keys;
+#endif
 #ifdef CONFIG_INTEGRITY_PLATFORM_KEYRING
 static struct key *platform_trusted_keys;
 #endif
@@ -98,6 +101,13 @@ int restrict_link_by_builtin_and_secondary_trusted(
 	    payload == &builtin_trusted_keys->payload)
 		/* Allow the builtin keyring to be added to the secondary */
 		return 0;
+#ifdef CONFIG_MICA_OWNER_KEYRING
+	if (mica_owner_keys && type == &key_type_keyring &&
+	    dest_keyring == secondary_trusted_keys &&
+	    payload == &mica_owner_keys->payload)
+		/* Allow the owner keyring to be added to the secondary */
+		return 0;
+#endif
 
 	return restrict_link_by_signature(dest_keyring, type, payload,
 					  secondary_trusted_keys);
@@ -252,6 +262,23 @@ static __init int system_trusted_keyring_init(void)
 
 	if (key_link(secondary_trusted_keys, builtin_trusted_keys) < 0)
 		panic("Can't link trusted keyrings\n");
+#endif
+#ifdef CONFIG_MICA_OWNER_KEYRING
+	/*
+	 * Unrestricted until userspace seals it with KEYCTL_RESTRICT_KEYRING,
+	 * which can be done only once.
+	 */
+	mica_owner_keys =
+		keyring_alloc(".mica_owner",
+			      GLOBAL_ROOT_UID, GLOBAL_ROOT_GID, current_cred(),
+			      KEY_POS_ALL | KEY_USR_VIEW | KEY_USR_READ |
+			      KEY_USR_SEARCH | KEY_USR_WRITE | KEY_USR_SETATTR,
+			      KEY_ALLOC_NOT_IN_QUOTA, NULL, NULL);
+	if (IS_ERR(mica_owner_keys))
+		panic("Can't allocate owner keyring\n");
+
+	if (key_link(secondary_trusted_keys, mica_owner_keys) < 0)
+		panic("Can't link owner keyring\n");
 #endif
 
 	return 0;
