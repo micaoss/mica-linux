@@ -819,6 +819,8 @@ int panfrost_job_init(struct panfrost_device *pfdev)
 	if (!pfdev->reset.wq)
 		return -ENOMEM;
 
+	args.timeout_wq = pfdev->reset.wq;
+
 	for (j = 0; j < NUM_JOB_SLOTS; j++) {
 		js->queue[j].fence_context = dma_fence_context_alloc(1);
 
