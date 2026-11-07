@@ -106,6 +106,20 @@ config SECONDARY_TRUSTED_KEYRING_SIGNED_BY_BUILTIN
 	  linking code signing keys with imputed trust to the secondary
 	  trusted keyring.
 
+config MICA_OWNER_KEYRING
+	bool "Provide a keyring for keys enrolled by the device owner"
+	depends on SECONDARY_TRUSTED_KEYRING
+	help
+	  If set, provide a ".mica_owner" keyring, linked into the secondary
+	  trusted keyring, to which root may add keys that no trusted key
+	  vouches for, until userspace seals it with KEYCTL_RESTRICT_KEYRING.
+	  Keys in it are trusted like those in the secondary keyring, e.g. for
+	  module signatures and dm-verity root hash signatures.  The init
+	  process enrols the owner's certificates and seals the keyring before
+	  it runs anything else.
+
+	  If unsure, say N.
+
 config SYSTEM_BLACKLIST_KEYRING
 	bool "Provide system-wide ring of blacklisted keys"
 	depends on KEYS
